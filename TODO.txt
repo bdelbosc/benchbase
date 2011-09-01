@@ -1,0 +1,57 @@
+#    -*- mode: org -*-
+#+TITLE: benchbase to do list
+#+AUTHOR: Benoit Delbosc
+
+* TODO use mako to generate gnuplot script and rest template
+
+* TODO update the README.txt
+* TODO plotting
+
+   btrack report BID
+
+  - total
+    start, stop, duration, 
+    total number of sample, % error
+    avg/s min, max stdev, p10, p50, p90, p95
+    CUs
+    
+     -> per CUs
+    graph time/cu
+    graph avg, p10, ... per CU
+    graph trhougput
+
+
+   - per sample
+     count
+     avg/s min, max stdev, p10, p50, p90, p95
+     % error
+* TODO Generate graph
+   one global + one per sample
+   add max/min/avg/
+
+
+
+
+* TODO handle multiple bench and group
+
+  - btrack list
+    | BID  | comments   |
+    |------+------------|
+    | G-01 | un comment |
+
+  - btrack import --jmeter -m"comment" file.xml PREFIX
+    PREFIX-01
+
+
+* TODO store file 
+   as blob
+
+   btrack add-file -m"comment" [-g GROUP] foo.bar
+   btrack list-file
+    | BID | filename | comment |
+    |-----+----------+---------|
+    |     |          |         |
+   btrack get-file BID [filename]
+     
+
+

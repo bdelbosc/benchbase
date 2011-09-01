@@ -1,0 +1,12 @@
+syntax:glob
+
+dist
+build
+doc/*.html
+*.pyc
+*.swp
+.#*
+*~
+benchbase.egg-info/
+test.csv
+data/
