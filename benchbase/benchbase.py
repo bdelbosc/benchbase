@@ -9,13 +9,23 @@ import xml.etree.cElementTree as etree
 import logging
 import hashlib
 import datetime
-from tempfile import mkdtemp
 from commands import getstatusoutput
 from optparse import OptionParser, TitledHelpFormatter
+import pkg_resources
+from mako.lookup import TemplateLookup
 
-USAGE = """benchbase [Options] FILE
+TEMPLATE_LOOKUP = TemplateLookup(
+    directories=[pkg_resources.resource_filename('benchbase', '/templates')],
+    )
 
-  benchbase -j jmeter-bench-result.xml
+USAGE = """benchbase list|import|report
+
+  benchbase list: list existing bench results
+
+  benchbase import [option] bench-result-file.xml
+   import options: -j -f -m
+
+  benchbase report <BID>
 
 """
 
@@ -25,6 +35,8 @@ SCHEMAS = {
         'md5sum': 'TEXT',   # md5sum of the file
         'filename': 'TEXT',  # imported filename
         'date': 'TEXT',  # date of import
+        'comment': 'TEXT',
+        'generator': 'TEXT',  # jmeter or funkload
         },
 
     # jmeter table
@@ -99,6 +111,11 @@ def get_version():
     return get_distribution('benchbase').version
 
 
+def render_template(template_name, **kwargs):
+    mytemplate = TEMPLATE_LOOKUP.get_template(template_name)
+    return mytemplate.render(**kwargs)
+
+
 def md5sum(filename):
     f = open(filename)
     md5 = hashlib.md5()
@@ -110,103 +127,188 @@ def md5sum(filename):
     return md5.hexdigest()
 
 
-def command(cmd, do_raise=True, verbose=False):
-    """Return the status, output as a line list."""
-    extra = 'LC_ALL=C '
-    if verbose:
-        print('Run: ' + extra + cmd)
-    status, output = getstatusoutput(extra + cmd)
-    if status:
-        if do_raise:
-            print('ERROR: [%s] return status: [%d], output: [%s]' %
-                  (extra + cmd, status, output))
-            raise RuntimeError('Invalid return code: %s' % status)
-        else:
-            if verbose:
-                print ('return status: [%d]' % status)
-    if output:
-        output = output.split('\n')
-    return (status, output)
+def gnuplot(script_path):
+    """Execute a gnuplot script."""
+    path = os.path.dirname(os.path.abspath(script_path))
+    if sys.platform.lower().startswith('win'):
+        # commands module doesn't work on win and gnuplot is named
+        # wgnuplot
+        ret = os.system('cd "' + path + '" && wgnuplot "' +
+                        os.path.abspath(script_path) + '"')
+        if ret != 0:
+            raise RuntimeError("Failed to run wgnuplot cmd on " +
+                               os.path.abspath(script_path))
+
+    else:
+        cmd = 'cd ' + path + '; gnuplot ' + os.path.abspath(script_path)
+        ret, output = getstatusoutput(cmd)
+        if ret != 0:
+            raise RuntimeError("Failed to run gnuplot cmd: " + cmd +
+                               "\n" + str(output))
 
 
-def importJmeter(filename, options):
-    md5 = md5sum(filename)
-    print md5
+def gnuplot_scriptpath(base, filename):
+    """Return a file path string from the join of base and file name for use
+    inside a gnuplot script.
+
+    Backslashes (the win os separator) are replaced with forward
+    slashes. This is done because gnuplot scripts interpret backslashes
+    specially even in path elements.
+    """
+    return os.path.join(base, filename).replace("\\", "/")
+
+
+def initializeDb(options):
     if options.rmdatabase and os.path.exists(options.database):
-        print "Erasing existing database"
-        logging.info("Erasing database: " + options.database)
+        logging.warning("Erasing database: " + options.database)
         os.unlink(options.database)
     db = sqlite3.connect(options.database)
-
     table_names = SCHEMAS.keys()
     for table_name in table_names:
         sql_create = CREATE_QUERY.format(
             table=table_name,
             fields=", ".join(['{0} {1}'.format(name, type) for name, type in SCHEMAS[table_name].items()]))
-        logging.info('Creating table {0}'.format(table_name))
+        logging.debug('Creating table {0}'.format(table_name))
         try:
-            logging.info(sql_create)
+            logging.debug(sql_create)
             db.execute(sql_create)
         except Exception, e:
             logging.warning(e)
-    c = db.cursor()
-    t = (md5,)
-    c.execute("SELECT * FROM bench WHERE md5sum = ? ", t)
-    row = c.fetchone()
-    if row:
-        print "File already imported " + str(row)
-        c.close()
-        return
+    db.commit()
+    return db
 
-    t = (md5, filename, datetime.datetime.now())
-    c.execute("INSERT INTO bench (md5sum, filename, date) VALUES (?, ?, ?)", t)
+
+def listBenchmarks(db):
+    c = db.cursor()
+    c.execute('SELECT ROWID, date, generator, comment FROM bench')
+    print "%5s %-19s %8s %s" % ('bid', 'imported', 'from', 'comment')
+    for row in c:
+        print "%5d %19s %8s %s" % (row[0], row[1][:19], row[2], row[3])
     c.close()
 
-    logging.info("Processing JMeter file: {0}".format(filename))
-    print "Processing JMeter file: " + filename
-    with open(filename) as xml_file:
-        tree = etree.iterparse(xml_file)
-        for events, row in tree:
-            table_name = row.tag.lower()
-            if table_name not in table_names:
-                continue
-            try:
-                logging.debug(row.attrib.keys())
-                db.execute(INSERT_QUERY.format(
-                        table=table_name,
-                        columns=', '.join(row.attrib.keys()),
-                        values=('?, ' * len(row.attrib.keys()))[:-2]),
-                           row.attrib.values())
-                print ".",
-            except Exception, e:
-                logging.warning(e)
-                print "x",
-            finally:
-                row.clear()
-        print "\n"
+
+class Jmeter(object):
+    """JMeter importer / renderer"""
+    def __init__(self, db, options):
+        self.options = options
+        self.db = db
+        self.table_names = SCHEMAS.keys()
+
+    def alreadyImported(self, md5, filename):
+        t = (md5,)
+        c = self.db.cursor()
+        c.execute("SELECT ROWID, date FROM bench WHERE md5sum = ? ", t)
+        row = c.fetchone()
+        c.close()
+        if row:
+            logging.info("%s already imported with bid: %d at %s" % (filename, row[0], row[1][:19]))
+            return True
+        return False
+
+    def registerBench(self, md5, filename):
+        c = self.db.cursor()
+        t = (md5, filename, datetime.datetime.now(), self.options.comment, 'jmeter')
+        c.execute("INSERT INTO bench (md5sum, filename, date, comment, generator) VALUES (?, ?, ?, ?, ?)", t)
+
+        t = (md5, )
+        c.execute("SELECT rowid FROM bench WHERE md5sum = ? ", t)
+        self.bid = c.fetchone()[0]
+        c.close()
+        return self.bid
+
+    def doImport(self, filename):
+        md5 = md5sum(filename)
+        if self.alreadyImported(md5, filename):
+            return
+        bid = self.registerBench(md5, filename)
+        db = self.db
+        logging.info("Importing JMeter file: {0} into bid: {1}".format(filename, bid))
+        with open(filename) as xml_file:
+            tree = etree.iterparse(xml_file)
+            for events, row in tree:
+                table_name = row.tag.lower()
+                if table_name not in self.table_names:
+                    continue
+                try:
+                    logging.debug(row.attrib.keys())
+                    cols = 'bid' + ', ' + ', '.join(row.attrib.keys())
+                    values = ('?, ' * (len(row.attrib.keys()) + 1))[:-2]
+                    data = row.attrib.values()
+                    data.insert(0, bid)
+                    db.execute(INSERT_QUERY.format(
+                            table=table_name,
+                            columns=cols,
+                            values=values), data)
+                    print ".",
+                except Exception, e:
+                    logging.warning(e)
+                    print "x",
+                finally:
+                    row.clear()
+            print "\n"
+            db.commit()
+            del(tree)
+        # finalize
+        db.execute("UPDATE sample SET stamp = ts/1000;")
+        db.execute("UPDATE sample SET success = 1 WHERE s IN ('true', 'TRUE', 'True');")
+        db.execute("UPDATE sample SET success = 0 WHERE s NOT IN ('true', 'TRUE', 'True');")
         db.commit()
-        del(tree)
-    # create time stamp
-    db.execute("UPDATE sample SET stamp = ts/1000;")
-    db.execute("UPDATE sample SET success = 1 WHERE s IN ('true', 'TRUE', 'True');")
-    db.execute("UPDATE sample SET success = 0 WHERE s NOT IN ('true', 'TRUE', 'True');")
+        return bid
 
-    # stats
-    # Take in account cycles with sampler and longer than 5s
-    db.execute("""INSERT INTO cycles SELECT na, min(stamp), max(stamp), COUNT(na), MIN(ROWID), MAX(ROWID), (MAX(ts) - MIN(ts))/1000.0 AS duration
-    FROM sample
-    WHERE na > 0
-    GROUP BY na
-    HAVING MAX(ts) - MIN(ts) > 5000
-    ORDER BY stamp;""")
-    db.commit()
-    db.close()
+    def getInfo(self, bid):
+        t = (bid, )
+        c = self.db.cursor()
+        c.execute("SELECT COUNT(stamp), datetime(MIN(stamp), 'unixepoch', 'localtime')"
+                  ", time(MAX(stamp), 'unixepoch', 'localtime') FROM sample WHERE bid = ?", t)
+        count, start, end = c.fetchone()
+        c.execute("SELECT COUNT(stamp) FROM sample WHERE bid = ? AND success = 0", t)
+        error = c.fetchone()[0]
+        c.execute("SELECT DISTINCT(lb) FROM sample WHERE bid = ?", t)
+        samples = [row[0] for row in c]
+        return {'bid': bid, 'count': count, 'start': start, 'end': end,
+                'error': error, 'samples': samples}
+
+    def buildReport(self, bid):
+        output_dir = self.options.output
+        if not os.access(output_dir, os.W_OK):
+            os.mkdir(output_dir, 0775)
+        params = {'dbpath': self.options.database,
+                  'output_dir': output_dir,
+                  'bid': bid}
+        samples = self.getInfo(bid).get('samples') + ['global', ]
+        for sample in samples:
+            params['sample'] = sample
+            params['filter'] = " AND lb = '%s' " % sample
+            params['title'] = "Sample: " + sample
+            if sample == 'global':
+                params['filter'] = ''
+                params['title'] = "Global"
+            script = render_template('gnuplot.mako', **params)
+            script_path = os.path.join(output_dir, sample + ".gplot")
+            f = open(script_path, 'w')
+            f.write(script)
+            f.close()
+            gnuplot(script_path)
 
 
-# response time / s
-#   select stamp, avg(t) from sample group by stamp;
-# debit / s
-# select datetime(stamp, 'unixepoch', 'localtime') DATE, na CUs, count(t), avg(t)/1000 from sample group by stamp;
+
+
+
+
+def initLogging(options):
+    level = logging.INFO
+    if options.verbose:
+        level = logging.DEBUG
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)s %(levelname)-8s %(message)s',
+                        datefmt='%m-%d %H:%M:%S',
+                        filename=options.logfile,
+                        filemode='w')
+    console = logging.StreamHandler()
+    console.setLevel(level)
+    formatter = logging.Formatter('%(message)s')
+    console.setFormatter(formatter)
+    logging.getLogger('').addHandler(console)
 
 
 def main():
@@ -216,14 +318,14 @@ def main():
                           version="benchbase %s" % get_version())
     parser.add_option("-v", "--verbose", action="store_true",
                       help="Verbose output")
-    parser.add_option("-o", "--output", type="string",
-                      help="PNG output file")
     parser.add_option("-l", "--logfile", type="string",
                       default=os.path.expanduser(DEFAULT_LOG),
                       help="Log file path")
     parser.add_option("-d", "--database", type="string",
                       default=os.path.expanduser(DEFAULT_DB),
                       help="SQLite db path")
+    parser.add_option("-m", "--comment", type="string",
+                      help="Add a comment")
     parser.add_option("-j", "--jmeter", action="store_true",
                       default=True,
                       help="JMeter input file")
@@ -233,21 +335,45 @@ def main():
     parser.add_option("--rmdatabase", action="store_true",
                       default=False,
                       help="Remove existing database")
+    parser.add_option("-o", "--output", type="string",
+                      help="Report output directory")
     options, args = parser.parse_args(sys.argv)
-
-    level = logging.INFO
-    if options.verbose:
-        level = logging.DEBUG
-    logging.basicConfig(filename=options.logfile, level=level)
-
-    if options.funkload:
-        raise NotImplementedError("Sorry, not yet available.")
-    if options.jmeter:
-        if len(args) != 2:
-            parser.error("Missing JMeter file")
+    initLogging(options)
+    if len(args) == 1:
+        parser.error("Missing options")
+    if args[1].lower() in ('l', 'li', 'list'):
+        db = initializeDb(options)
+        listBenchmarks(db)
+        db.close()
+    if args[1].lower() in ('imp', 'import'):
+        if len(args) != 3:
+            parser.error("Missing import file")
             return
-        importJmeter(args[1], options)
-        return
+        if options.funkload:
+            raise NotImplementedError("Sorry, FunkLoad import is not yet available.")
+        if options.jmeter:
+            db = initializeDb(options)
+            jm = Jmeter(db, options)
+            bid = jm.doImport(args[2])
+            if bid:
+                print "File imported, bench identifier (bid): %d" % bid
+            db.close()
+    if args[1].lower() in ('info', ):
+        if len(args) != 3:
+            parser.error('Missing bid')
+            return
+        db = initializeDb(options)
+        jm = Jmeter(db, options)
+        print """bid: %(bid)s, from %(start)s to %(end)s, samples: %(count)d, errors: %(error)d""" % jm.getInfo(args[2])
+        db.close()
+    if args[1].lower() in ('report', ):
+        if len(args) != 3:
+            parser.error('Missing bid')
+            return
+        db = initializeDb(options)
+        jm = Jmeter(db, options)
+        jm.buildReport(args[2])
+        db.close()
 
 if __name__ == '__main__':
     main()
