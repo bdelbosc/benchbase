@@ -17,17 +17,19 @@ Bench configuration
 * Imported into benchbase: ${imported}
 
 
-Bench content
+Bench summary
 ---------------
 
-* Number of samples: ${count}
-* Samples in error: ${error}
-* Percent of errors: ${"%.2f" % (error * 100. / count)} %
-* List of samples
-
+ =============== ========== ========== ============ ============= =========== ============ ====================
+ Sample name     Samples    Failure    Success Rate  Average Time  Min Time    Max Time     Average Troughput
+ --------------- ---------- ---------- ------------ ------------- ----------- ------------ --------------------
+ ${"ALL             %10d %10d %11.2f%% %11.3fs %10.3fs %12.3fs %7.3f" % (count, error, (100. - (error * 100. / count)), avgt, mint, maxt, count / (1.0 * duration))}
+ =============== ========== ========== ============ ============= =========== ============ ====================
 % for sample in samples:
-  - ${sample}
+ ${"%-15s" % sample} ${"%10d" % count} ${"%10d" % error}   ${"%9.2f" % (100. - (error * 100. / count))}%
 % endfor
+ =============== ========== ========== ============ ============= =========== ============ ====================
+
 
 
 All samples

@@ -274,11 +274,11 @@ class Jmeter(object):
         samples = [row[0] for row in c]
         c.execute("SELECT date, comment FROM bench WHERE ROWID = ?", t)
         imported, comment = c.fetchone()
-        c.execute("SELECT MAX(na), MAX(stamp) - MIN(stamp) FROM sample WHERE bid = ?", t)
-        maxThread, duration = c.fetchone()
+        c.execute("SELECT MAX(na), MAX(stamp) - MIN(stamp), AVG(t), MAX(t), MIN(t) FROM sample WHERE bid = ?", t)
+        maxThread, duration, avgt, maxt, mint = c.fetchone()
         return {'bid': bid, 'count': count, 'start': start, 'end': end,
                 'error': error, 'samples': samples, 'imported': imported[:19], 'comment': comment,
-                'maxThread': maxThread, 'duration': duration}
+                'maxThread': maxThread, 'duration': duration, 'avgt': avgt / 1000., 'maxt': maxt / 1000., 'mint': mint / 1000.}
 
     def buildReport(self, bid):
         output_dir = self.options.output
