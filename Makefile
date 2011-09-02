@@ -32,8 +32,8 @@ install:
 	python setup.py $(PKGTAG) install
 
 register:
-	-python2.6 setup.py register sdist bdist_egg upload
-	-python2.7 setup.py register bdist_egg upload
+	-python2.6 setup.py register $(PKGTAG) sdist bdist_egg upload
+	-python2.7 setup.py register $(PKGTAG) bdist_egg upload
 
 #uninstall:
 
