@@ -2,19 +2,18 @@
 #+TITLE: benchbase to do list
 #+AUTHOR: Benoit Delbosc
 
-* TODO add summary with min/max/avg
 * TODO enhance with percentile + stddev
+* TODO list should display start and duration date
+* TODO command: delete bid
 * TODO command: update comment
   benchbase comment -m"bla" 1
-* TODO command: delete bid
-* TODO update the README.txt
 * TODO funkload import
 * TODO monitoring report ?
   - gc -> pb with start date?
   - sar
   - misc csv input ?
-* TODO misc metadata
-* TODO add misc file 
+* TODO command add metadata
+* TODO command add misc file 
    as blob
 
    btrack add-file -m"comment" [-g GROUP] foo.bar
@@ -23,6 +22,11 @@
     |-----+----------+---------|
     |     |          |         |
    btrack get-file BID [filename]
+* DONE add summary with min/max/avg
+  CLOSED: [2011-09-02 ven. 15:04]
+  :LOGBOOK:
+  - State "DONE"       from "TODO"       [2011-09-02 ven. 15:04]
+  :END:
 * DONE align all chart start/end
   CLOSED: [2011-09-02 ven. 12:13]
   :LOGBOOK:

@@ -33,7 +33,7 @@ setup(
     download_url="http://pypi.python.org/packages/source/t/benchbase/benchbase-%s.tar.gz" % __version__,
     packages = find_packages(),
     license='GPL',
-    keywords='monitoring csv chart png gnuplot',
+    keywords='benchmark jmeter funkload report chart',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Environment :: Console',

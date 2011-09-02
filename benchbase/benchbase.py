@@ -20,14 +20,32 @@ TEMPLATE_LOOKUP = TemplateLookup(
     directories=[pkg_resources.resource_filename('benchbase', '/templates')],
     )
 
-USAGE = """benchbase list|import|report
+USAGE = """benchbase [--version] [--logfile=LOGFILE] [--database=DATABASE] COMMAND [OPTIONS] [ARGUMENT]
 
-  benchbase list: list existing bench results
+COMMANDS:
 
-  benchbase import [option] bench-result-file.xml
-   import options: -j -f -m
+  list
+     List the imported benchmark in the database.
 
-  benchbase report <BID>
+  info BID
+     Give more information about the benchmark with the bid number (benchmark identifier).
+
+  import [--jmeter|--funkload|--comment] FILE
+     Import the benchmark result into the database. Output the BID number.
+
+  report --output REPORT_DIR BID
+     Generate the report for the imported benchmark
+
+EXAMPLES:
+
+   benchbase list
+      List of imported benchmarks.
+
+   benchbase import -m"Tir 42" jmeter-2010.xml
+      Import a JMeter benchmark result file.
+
+   benchbase report 12 -o /tmp/report-tir43
+      Build the report of benchmark bid 12 into /tmp/report-tir43 directory
 
 """
 
@@ -187,10 +205,10 @@ def initializeDb(options):
 
 def listBenchmarks(db):
     c = db.cursor()
-    c.execute('SELECT ROWID, date, generator, comment FROM bench')
-    print "%5s %-19s %8s %s" % ('bid', 'imported', 'from', 'comment')
+    c.execute('SELECT ROWID, date, generator, filename, comment FROM bench')
+    print "%5s %-19s %-8s %-30s %s" % ('bid', 'Imported', 'Tool', 'Filename', 'Comment')
     for row in c:
-        print "%5d %19s %8s %s" % (row[0], row[1][:19], row[2], row[3])
+        print "%5d %19s %-8s %-30s %s" % (row[0], row[1][:19], row[2], os.path.basename(row[3]), row[4])
     c.close()
 
 
@@ -214,7 +232,7 @@ class Jmeter(object):
 
     def registerBench(self, md5, filename):
         c = self.db.cursor()
-        t = (md5, filename, datetime.datetime.now(), self.options.comment, 'jmeter')
+        t = (md5, filename, datetime.datetime.now(), self.options.comment, 'JMeter')
         c.execute("INSERT INTO bench (md5sum, filename, date, comment, generator) VALUES (?, ?, ?, ?, ?)", t)
 
         t = (md5, )
@@ -265,20 +283,34 @@ class Jmeter(object):
     def getInfo(self, bid):
         t = (bid, )
         c = self.db.cursor()
+        c.execute("SELECT date, comment, generator, filename FROM bench WHERE ROWID = ?", t)
+        try:
+            imported, comment, generator, filename = c.fetchone()
+        except TypeError:
+            logging.error('Invalid bid: %s' % bid)
+            raise ValueError('Invalid bid: %s' % bid)
         c.execute("SELECT COUNT(stamp), datetime(MIN(stamp), 'unixepoch', 'localtime')"
                   ", time(MAX(stamp), 'unixepoch', 'localtime') FROM sample WHERE bid = ?", t)
         count, start, end = c.fetchone()
         c.execute("SELECT COUNT(stamp) FROM sample WHERE bid = ? AND success = 0", t)
         error = c.fetchone()[0]
         c.execute("SELECT DISTINCT(lb) FROM sample WHERE bid = ?", t)
-        samples = [row[0] for row in c]
-        c.execute("SELECT date, comment FROM bench WHERE ROWID = ?", t)
-        imported, comment = c.fetchone()
+        sampleNames = [row[0] for row in c]
         c.execute("SELECT MAX(na), MAX(stamp) - MIN(stamp), AVG(t), MAX(t), MIN(t) FROM sample WHERE bid = ?", t)
         maxThread, duration, avgt, maxt, mint = c.fetchone()
-        return {'bid': bid, 'count': count, 'start': start, 'end': end,
+        samples = {}
+        for sample in sampleNames:
+            t = (bid, sample)
+            c.execute("SELECT AVG(t), MAX(t), MIN(t), COUNT(t) FROM sample WHERE bid = ? AND lb = ?", t)
+            row = c.fetchone()
+            samples[sample] = {'avgt': row[0] / 1000., 'maxt': row[1] / 1000., 'mint': row[2] / 1000.,
+                               'count': row[3], 'duration': duration}
+            c.execute("SELECT COUNT(t) FROM sample WHERE bid = ? AND lb = ? AND success = 0", t)
+            samples[sample]['error'] = c.fetchone()[0]
+        return {'bid': bid, 'count': count, 'start': start, 'end': end, 'filename': os.path.basename(filename),
                 'error': error, 'samples': samples, 'imported': imported[:19], 'comment': comment,
-                'maxThread': maxThread, 'duration': duration, 'avgt': avgt / 1000., 'maxt': maxt / 1000., 'mint': mint / 1000.}
+                'maxThread': maxThread, 'duration': duration, 'avgt': avgt / 1000.,
+                'maxt': maxt / 1000., 'mint': mint / 1000., 'generator': generator}
 
     def buildReport(self, bid):
         output_dir = self.options.output
@@ -290,7 +322,7 @@ class Jmeter(object):
                   'start': info['start'][11:19],
                   'end': info['end'],
                   'bid': bid}
-        samples = info.get('samples') + ['global', ]
+        samples = info['samples'].keys() + ['global', ]
         for sample in samples:
             params['sample'] = sample
             params['filter'] = " AND lb = '%s' " % sample
@@ -304,7 +336,6 @@ class Jmeter(object):
             f.write(script)
             f.close()
             gnuplot(script_path)
-        params = self.getInfo(bid)
         report = render_template('report.mako', **info)
         rst_path = os.path.join(output_dir, "index.rst")
         f = open(rst_path, 'w')
@@ -312,6 +343,7 @@ class Jmeter(object):
         f.close()
         html_path = os.path.join(output_dir, "index.html")
         generateHtml(rst_path, html_path, output_dir)
+        logging.info('Report generated: ' + html_path)
 
 
 def initLogging(options):
@@ -388,6 +420,9 @@ def main():
     if args[1].lower() in ('report', ):
         if len(args) != 3:
             parser.error('Missing bid')
+            return
+        if not options.output:
+            parser.error('Missing --output option')
             return
         db = initializeDb(options)
         jm = Jmeter(db, options)
