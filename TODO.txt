@@ -1,7 +1,6 @@
 #    -*- mode: org -*-
 #+TITLE: benchbase to do list
 #+AUTHOR: Benoit Delbosc
-
 * TODO enhance with percentile + stddev
 * TODO list should display start and duration date
 * TODO command: delete bid
@@ -10,8 +9,14 @@
 * TODO funkload import
 * TODO monitoring report ?
   - gc -> pb with start date?
+    benchbase import-gc -h hostname -m"comment" -d "9:10:30" BID FILE
+
   - sar
+    benchbase import-sar -h hostname -m"comment" BID FILE
+      -> extract cpu, disk, mem
+   
   - misc csv input ?
+
 * TODO command add metadata
 * TODO command add misc file 
    as blob
@@ -22,6 +27,11 @@
     |-----+----------+---------|
     |     |          |         |
    btrack get-file BID [filename]
+* DONE fix bug report path relative
+  CLOSED: [2011-09-02 ven. 17:00]
+  :LOGBOOK:
+  - State "DONE"       from "TODO"       [2011-09-02 ven. 17:00]
+  :END:
 * DONE add summary with min/max/avg
   CLOSED: [2011-09-02 ven. 15:04]
   :LOGBOOK:

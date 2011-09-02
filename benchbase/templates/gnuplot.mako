@@ -1,4 +1,4 @@
-set output "${output_dir}/${sample}.png"
+set output "${sample}.png"
 set terminal png size 640,768
 set multiplot layout 4, 1 title "${title}"
 set grid back

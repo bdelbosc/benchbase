@@ -107,31 +107,6 @@ SCHEMAS = {
         'ts': 'INTEGER',   # timeStamp (milliseconds since midnight Jan 1, 1970 UTC)
         'varname': 'TEXT'  # Value of the named variable (versions of JMeter after 2.3.1)
         },
-    # benchbase table
-    'cycles': {
-        'bid': 'INTEGER',
-        'cus': 'INTEGER',    # Concurrent users
-        'start': 'INTEGER',  # start cycle
-        'stop': 'INTEGER',   # end cycle
-        'rowstart': 'INTEGER',  # first row
-        'rowend': 'INTEGER',   # lastrow
-        'count': 'INTEGER',   # number of sampler
-        'duration': 'REAL'
-        },
-    'stats': {
-        'bid': 'INTEGER',
-        'cycle': 'INTEGER',   # cycle number
-        'sampler': 'TEXT',    # label of the sampler or ALL
-        'count': 'INTEGER',   # number of sampler
-        'avg': 'REAL',
-        'max': 'REAL',
-        'min': 'REAL',
-        'p10': 'REAL',
-        'p50': 'REAL',
-        'p90': 'REAL',
-        'p95': 'REAL',
-        'p98': 'REAL'
-        }
 }
 
 CREATE_QUERY = 'CREATE TABLE IF NOT EXISTS [{table}]({fields})'
@@ -191,8 +166,8 @@ def generateHtml(rst_file, html_file, report_dir):
     f.write(css_content)
     f.close()
     cmdline = "-t --stylesheet-path=%s %s %s" % ('benchbase.css',
-                                                 rst_file,
-                                                 html_file)
+                                                 os.path.basename(rst_file),
+                                                 os.path.basename(html_file))
     cmd_argv = cmdline.split(' ')
     pwd = os.getcwd()
     os.chdir(report_dir)
