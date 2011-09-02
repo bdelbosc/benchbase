@@ -8,16 +8,21 @@ set format x "%H:%M"
 set datafile separator "|"
 set style data lines
 
+set yrange [0:]
+set xrange ["${start}":"${end}"]
+
 set title "Concurrent Users" offset 0, -2
 set ylabel "Threads"
 plot "< sqlite3 ${dbpath}  \"select time(stamp, 'unixepoch', 'localtime') TIME, na from sample where bid = ${bid} ${filter} group by stamp order by stamp\"" u 1:2 notitle with steps lw 2 lt 3
+
 set title "Samples per second"
 set ylabel "Samples"
-plot "< sqlite3 ${dbpath}  \"select time(stamp, 'unixepoch', 'localtime') TIME, count(na) from sample where bid = ${bid} ${filter} group by stamp order by stamp\"" u 1:2 lt 3  notitle with steps, "" u 1:2 notitle with line lt 2 lw 2 smooth bezier 
+plot "< sqlite3 ${dbpath}  \"select time(stamp, 'unixepoch', 'localtime') TIME, count(na) from sample where bid = ${bid} ${filter} group by stamp order by stamp\"" u 1:2 lt 3  notitle with steps, "" u 1:2 t 'bezier' with line lt 9 lw 2 smooth bezier 
 
 set title "Average response time in second" offset 0, -2
 set ylabel "Seconds"
-plot "< sqlite3 ${dbpath}  \"select time(stamp, 'unixepoch', 'localtime') TIME, avg(t)/1000.0 from sample where bid = ${bid} ${filter} group by stamp order by stamp\"" u 1:2 lt 3 notitle with linespoints, "" u 1:2 notitle with line lw 2 lt 6 smooth bezier
+plot "< sqlite3 ${dbpath}  \"select time(stamp, 'unixepoch', 'localtime') TIME, avg(t)/1000.0 from sample where bid = ${bid} ${filter} group by stamp order by stamp\"" u 1:2 lt 3 notitle with linespoints, "" u 1:2 t 'bezier' with line lw 2 lt 11 smooth bezier
+
 set title "Errors per second"
 set ylabel "Errors"
 plot "< sqlite3 ${dbpath}  \"select time(stamp, 'unixepoch', 'localtime') TIME, COUNT(na) - SUM(success) from sample where bid = ${bid} ${filter} group by stamp order by stamp\"" u 1:2 notitle with steps lw 2

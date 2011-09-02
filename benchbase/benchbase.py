@@ -12,7 +12,9 @@ import datetime
 from commands import getstatusoutput
 from optparse import OptionParser, TitledHelpFormatter
 import pkg_resources
+from docutils.core import publish_cmdline
 from mako.lookup import TemplateLookup
+
 
 TEMPLATE_LOOKUP = TemplateLookup(
     directories=[pkg_resources.resource_filename('benchbase', '/templates')],
@@ -107,8 +109,7 @@ DEFAULT_DB = "~/benchbase.db"
 
 def get_version():
     """Retrun the FunkLoad package version."""
-    from pkg_resources import get_distribution
-    return get_distribution('benchbase').version
+    return pkg_resources.get_distribution('benchbase').version
 
 
 def render_template(template_name, **kwargs):
@@ -147,15 +148,21 @@ def gnuplot(script_path):
                                "\n" + str(output))
 
 
-def gnuplot_scriptpath(base, filename):
-    """Return a file path string from the join of base and file name for use
-    inside a gnuplot script.
-
-    Backslashes (the win os separator) are replaced with forward
-    slashes. This is done because gnuplot scripts interpret backslashes
-    specially even in path elements.
-    """
-    return os.path.join(base, filename).replace("\\", "/")
+def generateHtml(rst_file, html_file, report_dir):
+    """Ask docutils to convert our rst file into html."""
+    css_content = pkg_resources.resource_string('benchbase', '/templates/benchbase.css')
+    css_dest_path = os.path.join(report_dir, 'benchbase.css')
+    f = open(css_dest_path, 'w')
+    f.write(css_content)
+    f.close()
+    cmdline = "-t --stylesheet-path=%s %s %s" % ('benchbase.css',
+                                                 rst_file,
+                                                 html_file)
+    cmd_argv = cmdline.split(' ')
+    pwd = os.getcwd()
+    os.chdir(report_dir)
+    publish_cmdline(writer_name='html', argv=cmd_argv)
+    os.chdir(pwd)
 
 
 def initializeDb(options):
@@ -265,17 +272,25 @@ class Jmeter(object):
         error = c.fetchone()[0]
         c.execute("SELECT DISTINCT(lb) FROM sample WHERE bid = ?", t)
         samples = [row[0] for row in c]
+        c.execute("SELECT date, comment FROM bench WHERE ROWID = ?", t)
+        imported, comment = c.fetchone()
+        c.execute("SELECT MAX(na), MAX(stamp) - MIN(stamp) FROM sample WHERE bid = ?", t)
+        maxThread, duration = c.fetchone()
         return {'bid': bid, 'count': count, 'start': start, 'end': end,
-                'error': error, 'samples': samples}
+                'error': error, 'samples': samples, 'imported': imported[:19], 'comment': comment,
+                'maxThread': maxThread, 'duration': duration}
 
     def buildReport(self, bid):
         output_dir = self.options.output
         if not os.access(output_dir, os.W_OK):
             os.mkdir(output_dir, 0775)
+        info = self.getInfo(bid)
         params = {'dbpath': self.options.database,
                   'output_dir': output_dir,
+                  'start': info['start'][11:19],
+                  'end': info['end'],
                   'bid': bid}
-        samples = self.getInfo(bid).get('samples') + ['global', ]
+        samples = info.get('samples') + ['global', ]
         for sample in samples:
             params['sample'] = sample
             params['filter'] = " AND lb = '%s' " % sample
@@ -289,10 +304,14 @@ class Jmeter(object):
             f.write(script)
             f.close()
             gnuplot(script_path)
-
-
-
-
+        params = self.getInfo(bid)
+        report = render_template('report.mako', **info)
+        rst_path = os.path.join(output_dir, "index.rst")
+        f = open(rst_path, 'w')
+        f.write(report)
+        f.close()
+        html_path = os.path.join(output_dir, "index.html")
+        generateHtml(rst_path, html_path, output_dir)
 
 
 def initLogging(options):
