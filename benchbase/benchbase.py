@@ -75,6 +75,36 @@ SCHEMAS = {
         'comment': 'TEXT',
         'generator': 'TEXT',  # jmeter or funkload
         },
+    # sysstat table
+    'host': {
+        'bid': 'INTEGER',
+        'host': 'TEXT',
+        'comment': 'TEXT',
+        },
+    'cpu': {
+        'bid': 'INTEGER',
+        'host': 'TEXT',
+        'date': 'TEXT',
+        'usr': 'REAL',
+        'nice': 'REAL',
+        'sys': 'REAL',
+        'iowait': 'REAL',
+        'steal': 'REAL',
+        'irq': 'REAL',
+        'soft': 'REAL',
+        'guest': 'REAL',
+        'idle': 'REAL'
+        },
+    'disk': {
+        'bid': 'INTEGER',
+        'host': 'TEXT',
+        'date': 'TEXT',
+        'dev': 'TEST',
+        'tps': 'REAL',
+        'rd_sec_per_s': 'REAL',
+        'wr_sec_per_s': 'REAL',
+        'util': 'REAL'
+        },
 
     # jmeter table
     'testresults': {
@@ -202,6 +232,54 @@ def listBenchmarks(db):
     for row in c:
         print "%5d %19s %-8s %-30s %s" % (row[0], row[1][:19], row[2], os.path.basename(row[3]), row[4])
     c.close()
+
+
+class Sar(object):
+    """Handle sysstat sar file."""
+    def __init__(self, db, options):
+        self.options = options
+        self.db = db
+        self.table_names = SCHEMAS.keys()
+
+    def doImport(self, bid, filename):
+        c = self.db.cursor()
+        options = self.options
+        host = options.host
+        t = (bid, host, options.comment)
+        c.execute('INSERT INTO host (bid, host, comment) VALUES (?, ?, ?)', t)
+        f = open(filename)
+        in_cpu = False
+        in_disk = False
+        while True:
+            line = f.readline()
+            if not line:
+                break
+            if 'CPU      %usr' in line:
+                in_cpu = True
+                continue
+            if 'DEV       tps' in line:
+                in_disk = True
+                continue
+            if in_cpu:
+                if not 'all' in line:
+                    continue
+                if 'Average' in line:
+                    in_cpu = False
+                    continue
+                t = [bid, host] + line.split()
+                t.remove('all')
+                c.execute('INSERT INTO cpu (bid, host, date, usr, nice, sys, iowait, steal, irq, soft, '
+                          'guest, idle) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', t)
+            elif in_disk:
+                if 'Average' in line:
+                    in_disk = False
+                    break
+                r = line.split()
+                t = [bid, host, r[0], r[1], r[2], r[3], r[4], r[9]]
+                c.execute('INSERT INTO disk (bid, host, date, dev, tps, rd_sec_per_s, wr_sec_per_s, util)'
+                          ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)', t)
+        c.close()
+        self.db.commit()
 
 
 class Jmeter(object):
@@ -380,6 +458,9 @@ def main():
                       help="Remove existing database")
     parser.add_option("-o", "--output", type="string",
                       help="Report output directory")
+    parser.add_option("-H", "--host", type="string",
+                      help="Host name when adding sar report")
+
     options, args = parser.parse_args(sys.argv)
     initLogging(options)
     if len(args) == 1:
@@ -420,6 +501,18 @@ def main():
         jm = Jmeter(db, options)
         jm.buildReport(args[2])
         db.close()
+    if args[1].lower() in ('add', 'addsar'):
+        if len(args) != 4:
+            parser.error('Expecting BID and FILE argument')
+            return
+        if not options.host:
+            parser.error('Missing --host option')
+            return
+        db = initializeDb(options)
+        sar = Sar(db, options)
+        sar.doImport(args[2], args[3])
+        db.close()
+
 
 if __name__ == '__main__':
     main()
