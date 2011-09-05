@@ -31,6 +31,22 @@ Bench summary
 % endfor
  =============== ========== ========== ============ ============= =========== ============ ====================
 
+% if len(sar):
+Monitoring
+-------------
+
+% for host, komment in sar.items():
+
+${host}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Host description: ${komment}
+
+ .. image:: sar-${host}.png
+
+% endfor
+
+% endif
 
 
 All samples

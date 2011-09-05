@@ -2,26 +2,8 @@
 #+TITLE: benchbase to do list
 #+AUTHOR: Benoit Delbosc
 * NEXT sar monitoring 
-  - sar
     benchbase import-sar -h hostname -m"comment" BID FILE
-      -> extract cpu, disk, mem
-
-
-  1/ find header
-  "CPU      %usr     %nice      %sys   %iowait    %steal      %irq     %soft    %guest "
-  filter on all
-  stop on blank like
-
-  insert "bid" "host" + row
-
-  insert hosts bid, host, comment
-
-  find DISK
-            DEV       tps  rd_sec/s  wr_sec/s  av
-  insert
- 
-   
-  - misc csv input ?
+      -> extract cpu, disk, swap ?
 * TODO gc monitorring
 
   -> pb with start date?

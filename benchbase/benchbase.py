@@ -50,6 +50,9 @@ COMMANDS:
   import [--jmeter|--funkload|--comment] FILE
      Import the benchmark result into the database. Output the BID number.
 
+  addsar --host HOST [--comment COMMENT] BID SAR
+     Import the text sysstat sar output
+
   report --output REPORT_DIR BID
      Generate the report for the imported benchmark
 
@@ -60,6 +63,8 @@ EXAMPLES:
 
    benchbase import -m"Tir 42" jmeter-2010.xml
       Import a JMeter benchmark result file.
+
+   benchbase add --host localhost -m"bencher host" 12 /tmp/sysstat-sar.log
 
    benchbase report 12 -o /tmp/report-tir43
       Build the report of benchmark bid 12 into /tmp/report-tir43 directory
@@ -281,8 +286,17 @@ class Sar(object):
         c.close()
         self.db.commit()
 
+    def getInfo(self, bid):
+        t = (bid, )
+        c = self.db.cursor()
+        c.execute("SELECT host, comment FROM host WHERE bid = ?", t)
+        ret = {'sar': {}}
+        for host, comment in c:
+            ret['sar'][host] = comment
+        return ret
 
-class Jmeter(object):
+
+class JMeter(object):
     """JMeter importer / renderer"""
     def __init__(self, db, options):
         self.options = options
@@ -304,7 +318,6 @@ class Jmeter(object):
         c = self.db.cursor()
         t = (md5, filename, datetime.datetime.now(), self.options.comment, 'JMeter')
         c.execute("INSERT INTO bench (md5sum, filename, date, comment, generator) VALUES (?, ?, ?, ?, ?)", t)
-
         t = (md5, )
         c.execute("SELECT rowid FROM bench WHERE md5sum = ? ", t)
         self.bid = c.fetchone()[0]
@@ -382,11 +395,19 @@ class Jmeter(object):
                 'maxThread': maxThread, 'duration': duration, 'avgt': avgt / 1000.,
                 'maxt': maxt / 1000., 'mint': mint / 1000., 'generator': generator}
 
+
+class Report(object):
+    """Report rendering"""
+    def __init__(self, db, options):
+        self.db = db
+        self.options = options
+
     def buildReport(self, bid):
         output_dir = self.options.output
         if not os.access(output_dir, os.W_OK):
             os.mkdir(output_dir, 0775)
-        info = self.getInfo(bid)
+        jm = JMeter(self.db, self.options)
+        info = jm.getInfo(bid)
         params = {'dbpath': self.options.database,
                   'output_dir': output_dir,
                   'start': info['start'][11:19],
@@ -400,8 +421,19 @@ class Jmeter(object):
             if sample == 'global':
                 params['filter'] = ''
                 params['title'] = "Global"
-            script = render_template('gnuplot.mako', **params)
+            script = render_template('jmeter-gplot.mako', **params)
             script_path = os.path.join(output_dir, sample + ".gplot")
+            f = open(script_path, 'w')
+            f.write(script)
+            f.close()
+            gnuplot(script_path)
+        sar = Sar(self.db, self.options)
+        info.update(sar.getInfo(bid))
+        for host in info['sar'].keys():
+            params['host'] = host
+            params['filter'] = " AND host = '%s'" % host
+            script = render_template('sar-gplot.mako', **params)
+            script_path = os.path.join(output_dir, "sar-%s.gplot" % host)
             f = open(script_path, 'w')
             f.write(script)
             f.close()
@@ -477,7 +509,7 @@ def main():
             raise NotImplementedError("Sorry, FunkLoad import is not yet available.")
         if options.jmeter:
             db = initializeDb(options)
-            jm = Jmeter(db, options)
+            jm = JMeter(db, options)
             bid = jm.doImport(args[2])
             if bid:
                 print "File imported, bench identifier (bid): %d" % bid
@@ -487,7 +519,7 @@ def main():
             parser.error('Missing bid')
             return
         db = initializeDb(options)
-        jm = Jmeter(db, options)
+        jm = JMeter(db, options)
         print """bid: %(bid)s, from %(start)s to %(end)s, samples: %(count)d, errors: %(error)d""" % jm.getInfo(args[2])
         db.close()
     if args[1].lower() in ('report', ):
@@ -498,8 +530,8 @@ def main():
             parser.error('Missing --output option')
             return
         db = initializeDb(options)
-        jm = Jmeter(db, options)
-        jm.buildReport(args[2])
+        report = Report(db, options)
+        report.buildReport(args[2])
         db.close()
     if args[1].lower() in ('add', 'addsar'):
         if len(args) != 4:
