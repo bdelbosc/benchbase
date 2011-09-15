@@ -1,0 +1,4 @@
+nose
+docutils
+mako
+cElementTree

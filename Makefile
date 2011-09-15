@@ -37,6 +37,12 @@ register:
 
 #uninstall:
 
+env:
+	pip install -I --upgrade -s -E env -r deps.txt
+	@echo "Remember to run 'source env/bin/activate'"
+
+check:
+	pyflakes benchbase
 
 clean:
 	find . "(" -name "*~" -or  -name ".#*" -or  -name "#*#" -or -name "*.pyc" ")" -print0 | xargs -0 rm -f

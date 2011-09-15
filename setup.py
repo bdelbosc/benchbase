@@ -20,7 +20,7 @@
 """benchbase package setup"""
 from setuptools import setup, find_packages
 __version__ = '1.0.1'
-import benchbase
+
 
 setup(
     name="benchbase",
@@ -31,7 +31,7 @@ setup(
     author_email="bdelbosc@nuxeo.com",
     url="http://pypi.python.org/pypi/benchbase",
     download_url="http://pypi.python.org/packages/source/t/benchbase/benchbase-%s.tar.gz" % __version__,
-    packages = find_packages(),
+    packages=find_packages(),
     license='GPL',
     keywords='benchmark jmeter funkload report chart',
     classifiers=[
@@ -48,8 +48,9 @@ setup(
     ],
     # setuptools specific keywords
     zip_safe=True,
+    test_suite='nose.collector',
     package_data={'benchbase': ['templates/*']},
-    entry_points = {
+    entry_points={
         'console_scripts': [
             'benchbase = benchbase.benchbase:main'],
     },

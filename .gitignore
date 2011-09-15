@@ -10,3 +10,4 @@ doc/*.html
 benchbase.egg-info/
 test.csv
 data/
+env/

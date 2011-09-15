@@ -2,33 +2,16 @@
 #+TITLE: benchbase to do list
 #+AUTHOR: Benoit Delbosc
 
-* TODO enhance with percentile + stddev
-  generate data file 
+* TODO use a python sqlite aggregator for stdev/percentil
+
+  enhance with percentile + stddev
   propose optimal period or settable
   p = time in second / graph size
-
-  moy sur p
-  max
-  min
-  p 50
-  p 90
-  apdex
-
-  1. req pour response time
-  s = select t from samples where t between (ps, pe)
-  count(s) -> nb req
-  max(s) 
-  percentil()
-  stddev()
-
   -> filter for each simple
-
   ex: 4h sur 800p: 1p=18s
-
-
-* TODO group sample by groupthread
+* TODO group samples by groupthread
   plot groupthread
-* TODO add avg n(s) default 5s
+* TODO add avg for sar n(s) default 5s
   -> create index on stamp ?
   -> convert sar date into  stamp as well
 * TODO sar monitoring should report memory swap usage
@@ -53,6 +36,23 @@
 
 * Changelog
 ** 1.0.1
+*** DONE accept gzipped files
+    CLOSED: [2011-09-15 jeu. 23:28]
+    :LOGBOOK:
+    - State "DONE"       from "TODO"       [2011-09-15 jeu. 23:28]
+    :END:
+*** DONE add functional tests
+  CLOSED: [2011-09-15 jeu. 23:27]
+  :LOGBOOK:
+  - State "DONE"       from "TODO"       [2011-09-15 jeu. 23:27]
+  :END:
+  test case data zipped format
+  bench1/jmeter sar gc
+*** DONE split sources
+    CLOSED: [2011-09-15 jeu. 23:28]
+    :LOGBOOK:
+    - State "DONE"       from "TODO"       [2011-09-15 jeu. 23:28]
+    :END:
 *** DONE sar monitoring
     CLOSED: [2011-09-05 lun. 13:42]
     :LOGBOOK:
