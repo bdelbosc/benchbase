@@ -1,14 +1,40 @@
 #    -*- mode: org -*-
 #+TITLE: benchbase to do list
 #+AUTHOR: Benoit Delbosc
-* NEXT sar monitoring 
-    benchbase import-sar -h hostname -m"comment" BID FILE
-      -> extract cpu, disk, swap ?
-* TODO gc monitorring
 
+* TODO enhance with percentile + stddev
+  generate data file 
+  propose optimal period or settable
+  p = time in second / graph size
+
+  moy sur p
+  max
+  min
+  p 50
+  p 90
+  apdex
+
+  1. req pour response time
+  s = select t from samples where t between (ps, pe)
+  count(s) -> nb req
+  max(s) 
+  percentil()
+  stddev()
+
+  -> filter for each simple
+
+  ex: 4h sur 800p: 1p=18s
+
+
+* TODO group sample by groupthread
+  plot groupthread
+* TODO add avg n(s) default 5s
+  -> create index on stamp ?
+  -> convert sar date into  stamp as well
+* TODO sar monitoring should report memory swap usage
+* TODO gc monitorring
   -> pb with start date?
     benchbase import-gc -h hostname -m"comment" -d "9:10:30" BID FILE
-* TODO enhance with percentile + stddev
 * TODO list should display start and duration date
 * TODO command: delete bid
 * TODO command: update comment
@@ -27,11 +53,18 @@
 
 * Changelog
 ** 1.0.1
-* DONE fix bug report path relative
-  CLOSED: [2011-09-02 ven. 17:00]
-  :LOGBOOK:
-  - State "DONE"       from "TODO"       [2011-09-02 ven. 17:00]
-  :END:
+*** DONE sar monitoring
+    CLOSED: [2011-09-05 lun. 13:42]
+    :LOGBOOK:
+    - State "DONE"       from "NEXT"       [2011-09-05 lun. 13:42]
+    :END:
+      benchbase import-sar -h hostname -m"comment" BID FILE
+        -> extract cpu, disk, swap ?
+*** DONE fix bug report path relative
+    CLOSED: [2011-09-02 ven. 17:00]
+    :LOGBOOK:
+    - State "DONE"       from "TODO"       [2011-09-02 ven. 17:00]
+    :END:
 
 ** 1.0.0 [2011-09-02 ven.]
 *** DONE add summary with min/max/avg

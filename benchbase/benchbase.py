@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf_8 -*
 # (C) Copyright 2008-2011 Nuxeo SAS <http://nuxeo.com>
 # Authors: Benoit Delbosc <ben@nuxeo.com>
 # Original idea Roman Mackovcak (recycl)
@@ -26,6 +27,8 @@ import xml.etree.cElementTree as etree
 import logging
 import hashlib
 import datetime
+import csv
+import re
 from commands import getstatusoutput
 from optparse import OptionParser, TitledHelpFormatter
 import pkg_resources
@@ -144,6 +147,9 @@ SCHEMAS = {
         },
 }
 
+# 1312804821705,647,label,scenar,text,true,347447,1,2,536
+JTL_COLUMN = ['ts', 't', 'lb', 'tn', 'de', 's', 'by', 'ng', 'na', 'lt']
+
 CREATE_QUERY = 'CREATE TABLE IF NOT EXISTS [{table}]({fields})'
 INSERT_QUERY = 'INSERT INTO {table} ({columns}) VALUES ({values})'
 LOG_FILENAME = 'btracker.log'
@@ -173,24 +179,39 @@ def md5sum(filename):
     return md5.hexdigest()
 
 
+def str2id(filename):
+    return re.sub(r"[^a-zA-Z0-9_]", r"_", filename)
+
+
+def percentile(sequence, percentile):
+    if len(sequence) < 1:
+        value = None
+    else:
+        element_idx = int(len(sequence) * (percentile / 100.0))
+        sequence.sort()
+        value = sequence[element_idx]
+    return value
+
+
 def gnuplot(script_path):
     """Execute a gnuplot script."""
     path = os.path.dirname(os.path.abspath(script_path))
     if sys.platform.lower().startswith('win'):
         # commands module doesn't work on win and gnuplot is named
         # wgnuplot
-        ret = os.system('cd "' + path + '" && wgnuplot "' +
-                        os.path.abspath(script_path) + '"')
+        ret = os.system('cd "%s" && wgnuplot "%s"' %
+                        path, script_path)
         if ret != 0:
             raise RuntimeError("Failed to run wgnuplot cmd on " +
-                               os.path.abspath(script_path))
+                               script_path)
 
     else:
-        cmd = 'cd ' + path + '; gnuplot ' + os.path.abspath(script_path)
+        cmd = 'cd %s && gnuplot %s' % (path, os.path.abspath(script_path))
         ret, output = getstatusoutput(cmd)
         if ret != 0:
-            raise RuntimeError("Failed to run gnuplot cmd: " + cmd +
-                               "\n" + str(output))
+            print "ERROR on " + cmd
+            #raise RuntimeError("Failed to run gnuplot cmd: " + cmd +
+            #                    "\n" + str(output))
 
 
 def generateHtml(rst_file, html_file, report_dir):
@@ -226,6 +247,7 @@ def initializeDb(options):
             db.execute(sql_create)
         except Exception, e:
             logging.warning(e)
+    db.execute("create index if not exists stamp_idx on sample (stamp)")
     db.commit()
     return db
 
@@ -324,13 +346,8 @@ class JMeter(object):
         c.close()
         return self.bid
 
-    def doImport(self, filename):
-        md5 = md5sum(filename)
-        if self.alreadyImported(md5, filename):
-            return
-        bid = self.registerBench(md5, filename)
+    def importXmlFile(self, bid, filename):
         db = self.db
-        logging.info("Importing JMeter file: {0} into bid: {1}".format(filename, bid))
         with open(filename) as xml_file:
             tree = etree.iterparse(xml_file)
             for events, row in tree:
@@ -356,10 +373,40 @@ class JMeter(object):
             print "\n"
             db.commit()
             del(tree)
+
+    def importJtlFile(self, bid, filename):
+        db = self.db
+        jtlReader = csv.reader(open(filename, 'rb'))
+        values = ('?, ' * (len(JTL_COLUMN) + 1))[:-2]
+        insert_query = 'INSERT INTO sample (bid, ' + ', '.join(JTL_COLUMN) + ') VALUES (' + values + ')'
+        print insert_query
+        for row in jtlReader:
+            row = [unicode(cell, 'utf-8').encode('ascii', 'ignore') for cell in row]
+            try:
+                db.execute(insert_query, [bid, ] + row)
+                print ".",
+            except Exception, e:
+                logging.warning(e)
+                print "x",
+        print "\n"
+        print insert_query
+        db.commit()
+
+    def doImport(self, filename):
+        md5 = md5sum(filename)
+        if self.alreadyImported(md5, filename):
+            return
+        bid = self.registerBench(md5, filename)
+        db = self.db
+        logging.info("Importing JMeter file: {0} into bid: {1}".format(filename, bid))
+        if filename.endswith('xml'):
+            self.importXmlFile(bid, filename)
+        else:
+            self.importJtlFile(bid, filename)
         # finalize
-        db.execute("UPDATE sample SET stamp = ts/1000;")
-        db.execute("UPDATE sample SET success = 1 WHERE s IN ('true', 'TRUE', 'True');")
-        db.execute("UPDATE sample SET success = 0 WHERE s NOT IN ('true', 'TRUE', 'True');")
+        db.execute("UPDATE sample SET stamp = ts/1000 WHERE stamp IS NULL;")
+        db.execute("UPDATE sample SET success = 1 WHERE s IN ('true', 'TRUE', 'True') AND success IS NULL;")
+        db.execute("UPDATE sample SET success = 0 WHERE s NOT IN ('true', 'TRUE', 'True') AND success IS NULL;")
         db.commit()
         return bid
 
@@ -412,17 +459,18 @@ class Report(object):
                   'output_dir': output_dir,
                   'start': info['start'][11:19],
                   'end': info['end'],
-                  'bid': bid}
+                  'bid': bid,
+                  'ravg': self.options.runningavg}
         samples = info['samples'].keys() + ['global', ]
         for sample in samples:
-            params['sample'] = sample
+            params['sample'] = str2id(sample)
             params['filter'] = " AND lb = '%s' " % sample
             params['title'] = "Sample: " + sample
             if sample == 'global':
                 params['filter'] = ''
                 params['title'] = "Global"
             script = render_template('jmeter-gplot.mako', **params)
-            script_path = os.path.join(output_dir, sample + ".gplot")
+            script_path = os.path.join(output_dir, str2id(sample) + ".gplot")
             f = open(script_path, 'w')
             f.write(script)
             f.close()
@@ -434,6 +482,7 @@ class Report(object):
             params['filter'] = " AND host = '%s'" % host
             script = render_template('sar-gplot.mako', **params)
             script_path = os.path.join(output_dir, "sar-%s.gplot" % host)
+            script_path.replace(' ', '-')
             f = open(script_path, 'w')
             f.write(script)
             f.close()
@@ -492,7 +541,9 @@ def main():
                       help="Report output directory")
     parser.add_option("-H", "--host", type="string",
                       help="Host name when adding sar report")
-
+    parser.add_option("-r", "--runningavg", type="int",
+                      default=5,
+                      help="Number of second to compute the running average.")
     options, args = parser.parse_args(sys.argv)
     initLogging(options)
     if len(args) == 1:
