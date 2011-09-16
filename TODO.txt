@@ -2,13 +2,16 @@
 #+TITLE: benchbase to do list
 #+AUTHOR: Benoit Delbosc
 
-* TODO use a python sqlite aggregator for stdev/percentil
+* TODO split into period
+  - propose optimal period or settable
+    p = time in second / graph size
+    -> filter for each simple
+    ex: 4h sur 800p: 1p=18s
 
-  enhance with percentile + stddev
-  propose optimal period or settable
-  p = time in second / graph size
-  -> filter for each simple
-  ex: 4h sur 800p: 1p=18s
+  - write data into a report table
+
+  - clean command to truncate the report table
+* TODO add a jtl test case
 * TODO group samples by groupthread
   plot groupthread
 * TODO add avg for sar n(s) default 5s
@@ -36,6 +39,18 @@
 
 * Changelog
 ** 1.0.1
+*** DONE Ordering samples by total time
+    CLOSED: [2011-09-16 ven. 15:28]
+    :LOGBOOK:
+    - State "DONE"       from "TODO"       [2011-09-16 ven. 15:28]
+    :END:
+*** DONE use a python sqlite aggregator for stdev/percentil
+    CLOSED: [2011-09-16 ven. 14:39]
+    :LOGBOOK:
+    - State "DONE"       from "TODO"       [2011-09-16 ven. 14:39]
+    :END:
+
+    - add percentil and stdev aggregator
 *** DONE accept gzipped files
     CLOSED: [2011-09-15 jeu. 23:28]
     :LOGBOOK:

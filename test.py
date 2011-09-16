@@ -20,6 +20,7 @@ import os
 from tempfile import mkdtemp
 from unittest import TestCase
 from benchbase.main import main
+import benchbase.sqliteaggregate as aggregate
 
 
 class FunctionalTestCase(TestCase):
@@ -73,3 +74,51 @@ class FunctionalTestCase(TestCase):
         ret = self.bb('report -o %s 1' %
                       os.path.join(self._test_dir, 'report1'))
         self.assertEquals(0, ret)
+
+
+class AggregateTestCase(TestCase):
+
+    def test_percentile_null(self):
+        p = aggregate.P10()
+        p.step(float('nan'))
+        p.step('null')
+        self.assertEquals(None, p.finalize())
+
+    def test_percentile(self):
+        p10 = aggregate.P10()
+        med = aggregate.Median()
+        p90 = aggregate.P90()
+        p95 = aggregate.P95()
+        p98 = aggregate.P98()
+        for i in range(99, 0, -1):
+            p10.step(i)
+            med.step(i)
+            p90.step(i)
+            p95.step(i)
+            p98.step(i)
+
+        v10 = p10.finalize()
+        vmed = med.finalize()
+        v90 = p90.finalize()
+        v95 = p95.finalize()
+        v98 = p98.finalize()
+
+        self.assertEquals(v10, 10)
+        self.assertEquals(vmed, 50)
+        self.assertEquals(v90, 90)
+        self.assertEquals(v95, 95)
+        self.assertEquals(v98, 98)
+
+    def test_stddev_const(self):
+        sd = aggregate.StdDev()
+        for i in range(100):
+            sd.step(50)
+        ret = sd.finalize()
+        self.assertEquals(ret, 0)
+
+    def test_stddev_set(self):
+        sd = aggregate.StdDev()
+        for i in [2, 4, 4, 4, 5, 5, 7, 9]:
+            sd.step(i)
+        ret = sd.finalize()
+        self.assertEquals(ret, (32 / 7.) ** .5)

@@ -7,6 +7,13 @@ Bench base report
 .. sectnum::    :depth: 2
 .. contents:: Table of contents
 
+<%
+f1 = "%20.20s %13.13s %13.13s %13.13s %13.13s %13.13s %13.13s %13.13s %13.13s %13.13s %13.13s %13.13s %13.13s %13.13s"
+f2 = "{name:<20} {count:>13} {error:>13} {success_rate:>13.2f} {avgt:>13.3f} {stddevt:>13.3f} {mint:>13.3f} {medt:>13.3f} {p90t:>13.3f} {p95t:>13.3f} {p98t:>13.3f} {maxt:>13.3f} {tput:>13.3f} {total:>13.2f}"
+tb = f1 % (14 * ('=========================',))
+th = f1 % (14 * ('-------------------------',))
+tt = f1 % ('Sample name', 'Samples', 'Failures', 'Success Rate', 'Average time', 'Std dev', 'Min', 'Median', 'P90', 'P95', 'P98', 'Max', 'Avg Througput', 'Total time')
+%>
 
 Bench configuration
 -------------------
@@ -21,15 +28,16 @@ Bench configuration
 Bench summary
 ---------------
 
- =============== ========== ========== ============ ============= =========== ============ ====================
- Sample name     Samples    Failures   Success Rate  Average Time  Min Time    Max Time     Average Troughput
- --------------- ---------- ---------- ------------ ------------- ----------- ------------ --------------------
- ${"ALL             %10d %10d %11.2f%% %11.3fs %10.3fs %12.3fs %7.3f" % (count, error, (100. - (error * 100. / count)), avgt, mint, maxt, count / (1.0 * duration))}
- =============== ========== ========== ============ ============= =========== ============ ====================
-% for name, sample in samples.items():
- ${"%-15s %10d %10d %11.2f%% %11.3fs %10.3fs %12.3fs %7.3f" % (name, sample['count'], sample['error'], (100. - (sample['error'] * 100. / sample['count'])), sample['avgt'], sample['mint'], sample['maxt'], sample['count'] / (1.0 * sample['duration']))}
+${tb}
+${tt}
+${th}
+${f2.format(**all_samples)}
+${tb}
+% for sample in samples:
+${f2.format(**sample)}
 % endfor
- =============== ========== ========== ============ ============= =========== ============ ====================
+${tb}
+
 
 % if len(sar):
 Monitoring
@@ -52,6 +60,12 @@ Host description: ${komment}
 All samples
 ------------------------
 
+${tb}
+${tt}
+${tb}
+${f2.format(**all_samples)}
+${tb}
+
  .. image:: global.png
 
 
@@ -60,12 +74,16 @@ Samples
 
 % for sample in samples:
 
-${sample}
+${sample['name']}
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
- .. image:: ${sample}.png
+${tb}
+${tt}
+${tb}
+${f2.format(**sample)}
+${tb}
+
+ .. image:: ${sample['name']}.png
 
 % endfor
-
-
 

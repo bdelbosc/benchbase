@@ -41,16 +41,16 @@ class Report(object):
                   'end': info['end'],
                   'bid': bid,
                   'ravg': self.options.runningavg}
-        samples = info['samples'].keys() + ['global', ]
-        for sample in samples:
-            params['sample'] = str2id(sample)
-            params['filter'] = " AND lb = '%s' " % sample
-            params['title'] = "Sample: " + sample
-            if sample == 'global':
+        for sample in ([info['all_samples'], ] + info['samples']):
+            name = sample['name']
+            params['sample'] = str2id(name)
+            params['filter'] = " AND lb = '%s' " % name
+            params['title'] = "Sample: " + name
+            if name.lower() == 'all':
                 params['filter'] = ''
-                params['title'] = "Global"
+                params['title'] = "All"
             script = render_template('jmeter-gplot.mako', **params)
-            script_path = os.path.join(output_dir, str2id(sample) + ".gplot")
+            script_path = os.path.join(output_dir, str2id(name) + ".gplot")
             f = open(script_path, 'w')
             f.write(script)
             f.close()

@@ -37,6 +37,9 @@ register:
 
 #uninstall:
 
+test:
+	nosetests -v
+
 env:
 	pip install -I --upgrade -s -E env -r deps.txt
 	@echo "Remember to run 'source env/bin/activate'"

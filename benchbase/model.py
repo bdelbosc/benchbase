@@ -19,6 +19,7 @@
 import os
 import sqlite3
 import logging
+from sqliteaggregate import add_aggregates
 
 SCHEMAS = {
     # bench table
@@ -102,6 +103,7 @@ def open_db(options, create=True):
         os.unlink(options.database)
         create = True
     db = sqlite3.connect(options.database)
+    add_aggregates(db)
     if create:
         initialize_db(db)
     return db

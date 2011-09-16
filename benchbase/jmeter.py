@@ -23,7 +23,7 @@ import logging
 import datetime
 import csv
 from model import INSERT_QUERY, SCHEMAS
-from util import md5sum, mygzip
+from util import md5sum, mygzip, truncate
 
 # 1312804821705,647,label,scenar,text,true,347447,1,2,536
 JTL_COLUMN = ['ts', 't', 'lb', 'tn', 'de', 's', 'by', 'ng', 'na', 'lt']
@@ -100,7 +100,6 @@ class JMeter(object):
         jtlReader = csv.reader(f)
         values = ('?, ' * (len(JTL_COLUMN) + 1))[:-2]
         insert_query = 'INSERT INTO sample (bid, ' + ', '.join(JTL_COLUMN) + ') VALUES (' + values + ')'
-        print insert_query
         count = 0
         error = 0
         for row in jtlReader:
@@ -143,24 +142,40 @@ class JMeter(object):
             logging.error('Invalid bid: %s' % bid)
             raise ValueError('Invalid bid: %s' % bid)
         c.execute("SELECT COUNT(stamp), datetime(MIN(stamp), 'unixepoch', 'localtime')"
-                  ", time(MAX(stamp), 'unixepoch', 'localtime') FROM sample WHERE bid = ?", t)
-        count, start, end = c.fetchone()
-        c.execute("SELECT COUNT(stamp) FROM sample WHERE bid = ? AND success = 0", t)
-        error = c.fetchone()[0]
+                  ", time(MAX(stamp), 'unixepoch', 'localtime'), MAX(na), MAX(stamp) - MIN(stamp) FROM sample WHERE bid = ?", t)
+        count, start, end, max_thread, duration = c.fetchone()
         c.execute("SELECT DISTINCT(lb) FROM sample WHERE bid = ?", t)
         sampleNames = [row[0] for row in c]
-        c.execute("SELECT MAX(na), MAX(stamp) - MIN(stamp), AVG(t), MAX(t), MIN(t) FROM sample WHERE bid = ?", t)
-        maxThread, duration, avgt, maxt, mint = c.fetchone()
-        samples = {}
-        for sample in sampleNames:
-            t = (bid, sample)
-            c.execute("SELECT AVG(t), MAX(t), MIN(t), COUNT(t) FROM sample WHERE bid = ? AND lb = ?", t)
+        select = "SELECT COUNT(t), AVG(t), MAX(t), MIN(t),  STDDEV(t),  MED(t), P10(t), P90(t), P95(t), P98(t), TOTAL(t) FROM sample WHERE bid = ?"
+        c.execute(select, t)
+        row = c.fetchone()
+        all_samples = {'name': 'ALL', 'count': row[0],
+                       'avgt': row[1] / 1000., 'maxt': row[2] / 1000., 'mint': row[3] / 1000.,
+                       'stddevt': row[4] / 1000., 'medt': row[5] / 1000., 'p10t': row[6] / 1000.,
+                       'p90t': row[7] / 1000., 'p95t': row[8] / 1000., 'p98t': row[9] / 1000.,
+                       'total': row[10] / 1000.,
+                       'duration': duration, 'tput': row[0] / float(duration)}
+        c.execute("SELECT COUNT(stamp) FROM sample WHERE bid = ? AND success = 0", t)
+        error = c.fetchone()[0]
+        all_samples['error'] = error
+        all_samples['success_rate'] = 100. - (all_samples['error'] * 100. / all_samples['count'])
+        samples = []
+        for name in sampleNames:
+            t = (bid, name)
+            c.execute(select + " AND lb = ?", t)
             row = c.fetchone()
-            samples[sample] = {'avgt': row[0] / 1000., 'maxt': row[1] / 1000., 'mint': row[2] / 1000.,
-                               'count': row[3], 'duration': duration}
+            sample = {'name': name | truncate(20), 'count': row[0],
+                      'avgt': row[1] / 1000., 'maxt': row[2] / 1000., 'mint': row[3] / 1000.,
+                      'stddevt': row[4] / 1000., 'medt': row[5] / 1000., 'p10t': row[6] / 1000.,
+                      'p90t': row[7] / 1000., 'p95t': row[8] / 1000., 'p98t': row[9] / 1000.,
+                      'total': row[10] / 1000.,
+                      'duration': duration, 'tput': row[0] / float(duration)}
             c.execute("SELECT COUNT(t) FROM sample WHERE bid = ? AND lb = ? AND success = 0", t)
-            samples[sample]['error'] = c.fetchone()[0]
+            sample['error'] = c.fetchone()[0]
+            sample['success_rate'] = 100. - (sample['error'] * 100. / sample['count'])
+            samples.append(sample)
+        samples.sort(cmp=lambda x, y: cmp(x['total'], y['total']), reverse=True)
         return {'bid': bid, 'count': count, 'start': start, 'end': end, 'filename': os.path.basename(filename),
-                'error': error, 'samples': samples, 'imported': imported[:19], 'comment': comment,
-                'maxThread': maxThread, 'duration': duration, 'avgt': avgt / 1000.,
-                'maxt': maxt / 1000., 'mint': mint / 1000., 'generator': generator}
+                'error': error, 'imported': imported[:19], 'comment': comment,
+                'maxThread': max_thread, 'duration': duration, 'generator': generator,
+                'samples': samples, 'all_samples': all_samples}

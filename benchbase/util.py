@@ -135,3 +135,26 @@ class mygzip(gzip.GzipFile):
 
     def __exit__(self, *args):
         self.close()
+
+
+# credits goes to Subways and Django folks
+class BaseFilter(object):
+    """Base filter."""
+    def __ror__(self, other):
+        return other  # pass-thru
+
+    def __call__(self, other):
+        return other | self
+
+
+class truncate(BaseFilter):
+    """Middle truncate string up to length."""
+    def __init__(self, length=40, extra='...'):
+        self.length = length
+        self.extra = extra
+
+    def __ror__(self, other):
+        if len(other) > self.length:
+            mid_size = (self.length - 3) / 2
+            other = other[:mid_size] + self.extra + other[-mid_size:]
+        return other
