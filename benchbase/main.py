@@ -94,6 +94,15 @@ def main(argv=sys.argv):
     parser.add_option("-r", "--runningavg", type="int",
                       default=5,
                       help="Number of second to compute the running average.")
+    parser.add_option("--chart-width", type="int",
+                      default=800,
+                      help="Width of charts in report.")
+    parser.add_option("--chart-height", type="int",
+                      default=768,
+                      help="Heigth of charts in report.")
+    parser.add_option("--period", type="int",
+                      help="Resolution in second")
+
     options, args = parser.parse_args(argv)
     init_logging(options)
     if len(args) == 1:

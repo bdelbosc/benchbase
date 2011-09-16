@@ -122,3 +122,20 @@ class AggregateTestCase(TestCase):
             sd.step(i)
         ret = sd.finalize()
         self.assertEquals(ret, (32 / 7.) ** .5)
+
+
+class IntervalTestCase(TestCase):
+
+    def test_interval(self):
+        interval = aggregate.interval
+        self.assertEquals(100, interval(100, 10, 100))
+        self.assertEquals(100, interval(100, 10, 109))
+        self.assertEquals(110, interval(100, 10, 110))
+        self.assertEquals(110, interval(100, 10, 111))
+        self.assertEquals(110, interval(100, 10, 119))
+
+        self.assertEquals(91, interval(101, 10, 100))
+        self.assertEquals(101, interval(101, 10, 109))
+        self.assertEquals(101, interval(101, 10, 110))
+        self.assertEquals(111, interval(101, 10, 111))
+        self.assertEquals(111, interval(101, 10, 119))

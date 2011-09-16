@@ -78,16 +78,6 @@ def str2id(filename):
     return re.sub(r"[^a-zA-Z0-9_]", r"_", filename)
 
 
-def percentile(sequence, percentile):
-    if len(sequence) < 1:
-        value = None
-    else:
-        element_idx = int(len(sequence) * (percentile / 100.0))
-        sequence.sort()
-        value = sequence[element_idx]
-    return value
-
-
 def gnuplot(script_path):
     """Execute a gnuplot script."""
     path = os.path.dirname(os.path.abspath(script_path))

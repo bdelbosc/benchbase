@@ -23,7 +23,7 @@ import logging
 import datetime
 import csv
 from model import INSERT_QUERY, SCHEMAS
-from util import md5sum, mygzip, truncate
+from util import md5sum, mygzip, truncate, str2id
 
 # 1312804821705,647,label,scenar,text,true,347447,1,2,536
 JTL_COLUMN = ['ts', 't', 'lb', 'tn', 'de', 's', 'by', 'ng', 'na', 'lt']
@@ -132,6 +132,61 @@ class JMeter(object):
         db.commit()
         return bid
 
+    def getIntervalInfo(self, bid, start, period, sample, c=None):
+        close_cursor = False
+        if c is None:
+            c = self.db.cursor()
+            close_cursor = True
+        ret = [['time', 'count', 'avg', 'max', 'min', 'stdev', 'med', 'p10', 'p90', 'p95', 'p98', 'total', 'success', 'threads', 'tput', 'error_rate']]
+        query = "SELECT time(interval(?, ?, stamp), 'unixepoch', 'localtime'), COUNT(t), AVG(t)/1000, MAX(t)/1000., MIN(t)/1000.,  STDDEV(t)/1000,  "\
+            " MED(t)/1000, P10(t)/1000, P90(t)/1000, P95(t)/1000, P98(t)/1000, TOTAL(t)/1000, TOTAL(success), "\
+            " AVG(na) FROM sample WHERE bid = ?"
+        t = [start, period, bid]
+        if sample.lower() != 'all':
+            t.append(sample)
+            query += " AND lb = ?"
+        t = t + [start, period]
+        query += " GROUP BY interval(?, ?, stamp)"
+        logging.debug("query: %s, var: %s" % (query, str(t)))
+        c.execute(query, t)
+        for row in c:
+            error_rate = (row[1] - row[12]) * 100. / row[1]
+            ret.append(row + (row[1] / float(period), error_rate))
+        if close_cursor:
+            c.close()
+        return ret
+
+    def getPeriodInfo(self, bid, start, period, sample, c=None):
+        close_cursor = False
+        if c is None:
+            c = self.db.cursor()
+            close_cursor = True
+        query = "SELECT COUNT(t), AVG(t), MAX(t), MIN(t),  STDDEV(t),  MED(t), P10(t), P90(t), P95(t), P98(t), TOTAL(t), TOTAL(success) "\
+            "FROM sample WHERE bid = ? AND stamp >= ? AND stamp < ?"
+        t = [bid, start, start + period]
+        if sample.lower() != 'all':
+            t.append(sample)
+            query += " AND lb = ?"
+        # print "query: %s, var: %s" % (query, str(t))
+        logging.debug(query + str(t))
+        c.execute(query, t)
+        row = c.fetchone()
+        ret = {'name': sample, 'count': row[0],
+               'avgt': row[1] / 1000., 'maxt': row[2] / 1000., 'mint': row[3] / 1000.,
+               'stddevt': row[4] / 1000., 'medt': row[5] / 1000., 'p10t': row[6] / 1000.,
+               'p90t': row[7] / 1000., 'p95t': row[8] / 1000., 'p98t': row[9] / 1000.,
+               'total': row[10] / 1000., 'success': row[11],
+               'tput': row[0] / float(period),
+               'filename': str2id(sample),
+               'title': sample | truncate(20)}
+        ret['error'] = int(ret['count'] - ret['success'])
+        ret['success_rate'] = 100.
+        if ret['count'] > 0:
+            ret['success_rate'] = (100. * ret['success']) / ret['count']
+        if close_cursor:
+            c.close()
+        return ret
+
     def getInfo(self, bid):
         t = (bid, )
         c = self.db.cursor()
@@ -141,41 +196,19 @@ class JMeter(object):
         except TypeError:
             logging.error('Invalid bid: %s' % bid)
             raise ValueError('Invalid bid: %s' % bid)
-        c.execute("SELECT COUNT(stamp), datetime(MIN(stamp), 'unixepoch', 'localtime')"
+        c.execute("SELECT COUNT(stamp), MIN(stamp), datetime(MIN(stamp), 'unixepoch', 'localtime')"
                   ", time(MAX(stamp), 'unixepoch', 'localtime'), MAX(na), MAX(stamp) - MIN(stamp) FROM sample WHERE bid = ?", t)
-        count, start, end, max_thread, duration = c.fetchone()
+        count, start_stamp, start, end, max_thread, duration = c.fetchone()
+        # take in account the samples done in the last second
+        duration += 1
         c.execute("SELECT DISTINCT(lb) FROM sample WHERE bid = ?", t)
         sampleNames = [row[0] for row in c]
-        select = "SELECT COUNT(t), AVG(t), MAX(t), MIN(t),  STDDEV(t),  MED(t), P10(t), P90(t), P95(t), P98(t), TOTAL(t) FROM sample WHERE bid = ?"
-        c.execute(select, t)
-        row = c.fetchone()
-        all_samples = {'name': 'ALL', 'count': row[0],
-                       'avgt': row[1] / 1000., 'maxt': row[2] / 1000., 'mint': row[3] / 1000.,
-                       'stddevt': row[4] / 1000., 'medt': row[5] / 1000., 'p10t': row[6] / 1000.,
-                       'p90t': row[7] / 1000., 'p95t': row[8] / 1000., 'p98t': row[9] / 1000.,
-                       'total': row[10] / 1000.,
-                       'duration': duration, 'tput': row[0] / float(duration)}
-        c.execute("SELECT COUNT(stamp) FROM sample WHERE bid = ? AND success = 0", t)
-        error = c.fetchone()[0]
-        all_samples['error'] = error
-        all_samples['success_rate'] = 100. - (all_samples['error'] * 100. / all_samples['count'])
+        all_samples = self.getPeriodInfo(bid, start_stamp, duration, 'all', c)
         samples = []
         for name in sampleNames:
-            t = (bid, name)
-            c.execute(select + " AND lb = ?", t)
-            row = c.fetchone()
-            sample = {'name': name | truncate(20), 'count': row[0],
-                      'avgt': row[1] / 1000., 'maxt': row[2] / 1000., 'mint': row[3] / 1000.,
-                      'stddevt': row[4] / 1000., 'medt': row[5] / 1000., 'p10t': row[6] / 1000.,
-                      'p90t': row[7] / 1000., 'p95t': row[8] / 1000., 'p98t': row[9] / 1000.,
-                      'total': row[10] / 1000.,
-                      'duration': duration, 'tput': row[0] / float(duration)}
-            c.execute("SELECT COUNT(t) FROM sample WHERE bid = ? AND lb = ? AND success = 0", t)
-            sample['error'] = c.fetchone()[0]
-            sample['success_rate'] = 100. - (sample['error'] * 100. / sample['count'])
-            samples.append(sample)
+            samples.append(self.getPeriodInfo(bid, start_stamp, duration, name, c))
         samples.sort(cmp=lambda x, y: cmp(x['total'], y['total']), reverse=True)
         return {'bid': bid, 'count': count, 'start': start, 'end': end, 'filename': os.path.basename(filename),
-                'error': error, 'imported': imported[:19], 'comment': comment,
-                'maxThread': max_thread, 'duration': duration, 'generator': generator,
-                'samples': samples, 'all_samples': all_samples}
+                'start_stamp': start_stamp, 'imported': imported[:19], 'comment': comment,
+                'max_thread': max_thread, 'duration': duration, 'generator': generator,
+                'samples': samples, 'all_samples': all_samples, 'error': all_samples['error']}

@@ -96,6 +96,10 @@ class StdDev(object):
         return ret
 
 
+def interval(start, period, t):
+    return start + (int(t - start) / int(period)) * period
+
+
 def add_aggregates(db):
     db.create_aggregate('p10', 1, P10)
     db.create_aggregate('med', 1, Median)
@@ -103,3 +107,4 @@ def add_aggregates(db):
     db.create_aggregate('p95', 1, P95)
     db.create_aggregate('p98', 1, P98)
     db.create_aggregate('stddev', 1, P98)
+    db.create_function('interval', 3, interval)

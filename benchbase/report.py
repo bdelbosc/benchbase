@@ -18,6 +18,7 @@
 # 02111-1307, USA.
 import os
 import logging
+from math import ceil
 from jmeter import JMeter
 from sar import Sar
 from util import str2id, render_template, gnuplot, generate_html
@@ -28,6 +29,9 @@ class Report(object):
     def __init__(self, db, options):
         self.db = db
         self.options = options
+        self.height = options.chart_height
+        self.width = options.chart_width
+        self.period = options.period
 
     def buildReport(self, bid):
         output_dir = self.options.output
@@ -35,17 +39,39 @@ class Report(object):
             os.mkdir(output_dir, 0775)
         jm = JMeter(self.db, self.options)
         info = jm.getInfo(bid)
+        period = self.period
+        def_period = int(ceil(info['duration'] / float(self.width))) * 30
+        bars = 4
+        if period is None:
+            period = def_period
+        else:
+            if 2 * period < def_period:
+                bars = 2
         params = {'dbpath': self.options.database,
                   'output_dir': output_dir,
                   'start': info['start'][11:19],
                   'end': info['end'],
                   'bid': bid,
-                  'ravg': self.options.runningavg}
+                  'ravg': self.options.runningavg,
+                  'width': self.width,
+                  'height': self.height,
+                  'period': period,
+                  'duration': info['duration'],
+                  'bars': bars}
+
         for sample in ([info['all_samples'], ] + info['samples']):
             name = sample['name']
-            params['sample'] = str2id(name)
+            data = jm.getIntervalInfo(bid, info['start_stamp'], period, name)
+            data_path = os.path.join(output_dir, str2id(name) + ".data")
+            f = open(data_path, 'w')
+            for row in data:
+                row = [str(i) for i in row]
+                f.write(' '.join(row) + '\n')
+            f.close()
+            params['data'] = os.path.basename(data_path)
             params['filter'] = " AND lb = '%s' " % name
             params['title'] = "Sample: " + name
+            params['filename'] = str2id(name)
             if name.lower() == 'all':
                 params['filter'] = ''
                 params['title'] = "All"
@@ -55,6 +81,7 @@ class Report(object):
             f.write(script)
             f.close()
             gnuplot(script_path)
+
         sar = Sar(self.db, self.options)
         info.update(sar.getInfo(bid))
         for host in info['sar'].keys():
@@ -67,6 +94,7 @@ class Report(object):
             f.write(script)
             f.close()
             gnuplot(script_path)
+
         report = render_template('report.mako', **info)
         rst_path = os.path.join(output_dir, "index.rst")
         f = open(rst_path, 'w')
