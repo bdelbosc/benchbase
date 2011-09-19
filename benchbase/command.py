@@ -18,6 +18,7 @@
 # 02111-1307, USA.
 import logging
 from model import open_db, list_benchmarks
+from funkload import FunkLoad
 from jmeter import JMeter
 from sar import Sar
 from report import Report
@@ -34,17 +35,20 @@ def cmd_import(args, options):
     if len(args) != 1:
         logging.error("Missing import file")
         return 1
+    db = open_db(options)
     if options.funkload:
-        raise NotImplementedError("Sorry, FunkLoad import is not yet available.")
-    if options.jmeter:
-        db = open_db(options)
-        jm = JMeter(db, options)
-        bid = jm.doImport(args[0])
-        db.close()
-        if bid:
-            logging.info("File imported, bench identifier (bid): %d" % bid)
-        else:
-            return 1
+        bencher = FunkLoad(db, options)
+    elif options.jmeter:
+        bencher = JMeter(db, options)
+    else:
+        logging.error('Unknown import type')
+        return 1
+    bid = bencher.doImport(args[0])
+    db.close()
+    if bid:
+        logging.info("File imported, bench identifier (bid): %d" % bid)
+    else:
+        return 1
     return 0
 
 

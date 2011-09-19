@@ -35,7 +35,9 @@ register:
 	-python2.6 setup.py register $(PKGTAG) sdist bdist_egg upload
 	-python2.7 setup.py register $(PKGTAG) bdist_egg upload
 
-#uninstall:
+uninstall:
+	-rm -rf /usr/local/lib/python2.6/dist-packages/benchbase-*
+	-rm -f /usr/local/bin/benchbase
 
 test:
 	nosetests -v

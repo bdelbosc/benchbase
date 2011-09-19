@@ -62,12 +62,12 @@ SCHEMAS = {
         },
 
     # jmeter table
-    'testresults': {
+    'j_testresults': {
         'bid': 'INTEGER',
         'version': 'TEXT'
         },
     # jmeter table
-    'sample': {
+    'j_sample': {
         # additional fields
         'bid': 'INTEGER',
         'stamp': 'INTEGER',    # timestamp in second
@@ -92,6 +92,56 @@ SCHEMAS = {
         'ts': 'INTEGER',   # timeStamp (milliseconds since midnight Jan 1, 1970 UTC)
         'varname': 'TEXT'  # Value of the named variable (versions of JMeter after 2.3.1)
         },
+
+    # FunkLoad tables
+    'f_config': {
+        'bid': 'INTEGER',
+        'key': 'TEXT',
+        'value': 'TEXT'
+        },
+
+    'f_response': {
+        'bid': 'INTEGER',
+        'stamp': 'INTEGER',    # timestamp in second
+        'success': 'INTEGER',  # cast on s field
+        # fl fields
+        'cycle': 'INTEGER',
+        'cvus': 'INTEGER',
+        'thread': 'INTEGER',
+        'suite': 'TEXT',
+        'name': 'TEXT',
+        'step': 'INTEGER',
+        'number': 'INTEGER',
+        'type': 'TEXT',
+        'result': 'TEXT',
+        'url': 'TEXT',
+        'code': 'INTEGER',
+        'description': 'TEXT',
+        'time': 'REAL',
+        'duration': 'REAL'
+        },
+
+    'f_testResults': {
+        'bid': 'INTEGER',
+        'cycle': 'INTEGER',
+        'cvus': 'INTEGER',
+        'thread': 'INTEGER',
+        'suite': 'TEXT',
+        'name': 'TEXT',
+        'time': 'REAL',
+        'result': 'TEXT',
+        'steps': 'INTEGER',
+        'duration': 'REAL',
+        'connection_duration': 'REAL',
+        'requests': 'INTEGER',
+        'pages': 'INTEGER',
+        'xmlrpc': 'INTEGER',
+        'redirects': 'INTEGER',
+        'images': 'INTEGER',
+        'links': 'INTEGER'
+        }
+
+
 }
 CREATE_QUERY = 'CREATE TABLE IF NOT EXISTS [{table}]({fields})'
 INSERT_QUERY = 'INSERT INTO {table} ({columns}) VALUES ({values})'
@@ -121,7 +171,8 @@ def initialize_db(db):
             db.execute(sql_create)
         except Exception, e:
             logging.warning(e)
-    db.execute("create index if not exists stamp_idx on sample (stamp)")
+    db.execute("create index if not exists j_stamp_idx on j_sample (stamp)")
+    db.execute("create index if not exists f_response_idx on f_response (stamp)")
     db.commit()
     return db
 

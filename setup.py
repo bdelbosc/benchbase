@@ -19,7 +19,7 @@
 #
 """benchbase package setup"""
 from setuptools import setup, find_packages
-__version__ = '1.0.1'
+__version__ = '1.1.0'
 
 
 setup(
@@ -52,6 +52,6 @@ setup(
     package_data={'benchbase': ['templates/*']},
     entry_points={
         'console_scripts': [
-            'benchbase = benchbase.benchbase:main'],
+            'benchbase = benchbase.main:main'],
     },
 )

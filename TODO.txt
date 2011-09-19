@@ -1,16 +1,16 @@
 #    -*- mode: org -*-
 #+TITLE: benchbase to do list
 #+AUTHOR: Benoit Delbosc
-* TODO add a jtl test case
-* TODO group samples by groupthread
-  plot groupthread
-* TODO add avg for sar n(s) default 5s
+* TODO improve sar rendering
   -> create index on stamp ?
   -> convert sar date into  stamp as well
 * TODO sar monitoring should report memory swap usage
 * TODO gc monitorring
   -> pb with start date?
     benchbase import-gc -h hostname -m"comment" -d "9:10:30" BID FILE
+* TODO add a jtl test case
+* TODO plot groupthread
+  plot groupthread
 * TODO list should display start and duration date
 * TODO command: delete bid
 * TODO command: update comment

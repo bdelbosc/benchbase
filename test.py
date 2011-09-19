@@ -75,6 +75,10 @@ class FunctionalTestCase(TestCase):
                       os.path.join(self._test_dir, 'report1'))
         self.assertEquals(0, ret)
 
+    def test_50_import_funkload(self):
+        ret = self.bb('import tests/bench-10-fl/funkload.xml.gz -f -m fl_bench_comment')
+        self.assertEquals(0, ret)
+
 
 class AggregateTestCase(TestCase):
 

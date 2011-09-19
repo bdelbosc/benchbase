@@ -18,78 +18,26 @@
 # 02111-1307, USA.
 """Extract information from an JMeter result file."""
 import os
-import xml.etree.cElementTree as etree
 import logging
-import datetime
 import csv
-from model import INSERT_QUERY, SCHEMAS
-from util import md5sum, mygzip, truncate, str2id
+from util import mygzip, truncate, str2id
+from bencher import Bencher
 
 # 1312804821705,647,label,scenar,text,true,347447,1,2,536
 JTL_COLUMN = ['ts', 't', 'lb', 'tn', 'de', 's', 'by', 'ng', 'na', 'lt']
 
 
-class JMeter(object):
+class JMeter(Bencher):
     """JMeter importer / renderer"""
+
     def __init__(self, db, options):
-        self.options = options
-        self.db = db
-        self.table_names = SCHEMAS.keys()
+        Bencher.__init__(self, db, options)
 
-    def alreadyImported(self, md5, filename):
-        t = (md5,)
-        c = self.db.cursor()
-        c.execute("SELECT ROWID, date FROM bench WHERE md5sum = ? ", t)
-        row = c.fetchone()
-        c.close()
-        if row:
-            logging.info("%s already imported with bid: %d at %s" % (filename, row[0], row[1][:19]))
-            return True
-        return False
+    def _get_name(self):
+        return "JMeter"
 
-    def registerBench(self, md5, filename):
-        c = self.db.cursor()
-        t = (md5, filename, datetime.datetime.now(), self.options.comment, 'JMeter')
-        c.execute("INSERT INTO bench (md5sum, filename, date, comment, generator) VALUES (?, ?, ?, ?, ?)", t)
-        t = (md5, )
-        c.execute("SELECT rowid FROM bench WHERE md5sum = ? ", t)
-        self.bid = c.fetchone()[0]
-        c.close()
-        return self.bid
-
-    def importXmlFile(self, bid, filename):
-        db = self.db
-        if filename.endswith('.gz'):
-            f = mygzip(filename)
-        else:
-            f = open(filename)
-        count = 0
-        error = 0
-        with f as xml_file:
-            tree = etree.iterparse(xml_file)
-            for events, row in tree:
-                table_name = row.tag.lower()
-                if table_name not in self.table_names:
-                    continue
-                try:
-                    logging.debug(row.attrib.keys())
-                    cols = 'bid' + ', ' + ', '.join(row.attrib.keys())
-                    values = ('?, ' * (len(row.attrib.keys()) + 1))[:-2]
-                    data = row.attrib.values()
-                    data.insert(0, bid)
-                    db.execute(INSERT_QUERY.format(
-                            table=table_name,
-                            columns=cols,
-                            values=values), data)
-                    count += 1
-                except Exception, e:
-                    logging.warning(e)
-                    error += 1
-                finally:
-                    row.clear()
-            db.commit()
-            del(tree)
-            logging.info('%i samples imported, %i error(s).' % (count, error))
+    def _get_prefix(self):
+        return "j_"
 
     def importJtlFile(self, bid, filename):
         db = self.db
@@ -99,7 +47,7 @@ class JMeter(object):
             f = open(filename)
         jtlReader = csv.reader(f)
         values = ('?, ' * (len(JTL_COLUMN) + 1))[:-2]
-        insert_query = 'INSERT INTO sample (bid, ' + ', '.join(JTL_COLUMN) + ') VALUES (' + values + ')'
+        insert_query = 'INSERT INTO j_sample (bid, ' + ', '.join(JTL_COLUMN) + ') VALUES (' + values + ')'
         count = 0
         error = 0
         for row in jtlReader:
@@ -114,23 +62,10 @@ class JMeter(object):
         db.commit()
         logging.info('%i samples imported, %i error(s).' % (count, error))
 
-    def doImport(self, filename):
-        md5 = md5sum(filename)
-        if self.alreadyImported(md5, filename):
-            return
-        bid = self.registerBench(md5, filename)
-        db = self.db
-        logging.info("Importing JMeter file: {0} into bid: {1}".format(filename, bid))
-        if filename.endswith('xml') or filename.endswith('xml.gz'):
-            self.importXmlFile(bid, filename)
-        else:
-            self.importJtlFile(bid, filename)
-        # finalize
-        db.execute("UPDATE sample SET stamp = ts/1000 WHERE stamp IS NULL;")
-        db.execute("UPDATE sample SET success = 1 WHERE s IN ('true', 'TRUE', 'True') AND success IS NULL;")
-        db.execute("UPDATE sample SET success = 0 WHERE s NOT IN ('true', 'TRUE', 'True') AND success IS NULL;")
-        db.commit()
-        return bid
+    def finalizeImport(self, bid, db):
+        db.execute("UPDATE j_sample SET stamp = ts/1000 WHERE stamp IS NULL;")
+        db.execute("UPDATE j_sample SET success = 1 WHERE s IN ('true', 'TRUE', 'True') AND success IS NULL;")
+        db.execute("UPDATE j_sample SET success = 0 WHERE s NOT IN ('true', 'TRUE', 'True') AND success IS NULL;")
 
     def getIntervalInfo(self, bid, start, period, sample, c=None):
         close_cursor = False
@@ -140,7 +75,7 @@ class JMeter(object):
         ret = [['time', 'count', 'avg', 'max', 'min', 'stdev', 'med', 'p10', 'p90', 'p95', 'p98', 'total', 'success', 'threads', 'tput', 'error_rate']]
         query = "SELECT time(interval(?, ?, stamp), 'unixepoch', 'localtime'), COUNT(t), AVG(t)/1000, MAX(t)/1000., MIN(t)/1000.,  STDDEV(t)/1000,  "\
             " MED(t)/1000, P10(t)/1000, P90(t)/1000, P95(t)/1000, P98(t)/1000, TOTAL(t)/1000, TOTAL(success), "\
-            " AVG(na) FROM sample WHERE bid = ?"
+            " AVG(na) FROM j_sample WHERE bid = ?"
         t = [start, period, bid]
         if sample.lower() != 'all':
             t.append(sample)
@@ -162,7 +97,7 @@ class JMeter(object):
             c = self.db.cursor()
             close_cursor = True
         query = "SELECT COUNT(t), AVG(t), MAX(t), MIN(t),  STDDEV(t),  MED(t), P10(t), P90(t), P95(t), P98(t), TOTAL(t), TOTAL(success) "\
-            "FROM sample WHERE bid = ? AND stamp >= ? AND stamp < ?"
+            "FROM j_sample WHERE bid = ? AND stamp >= ? AND stamp < ?"
         t = [bid, start, start + period]
         if sample.lower() != 'all':
             t.append(sample)
@@ -197,11 +132,11 @@ class JMeter(object):
             logging.error('Invalid bid: %s' % bid)
             raise ValueError('Invalid bid: %s' % bid)
         c.execute("SELECT COUNT(stamp), MIN(stamp), datetime(MIN(stamp), 'unixepoch', 'localtime')"
-                  ", time(MAX(stamp), 'unixepoch', 'localtime'), MAX(na), MAX(stamp) - MIN(stamp) FROM sample WHERE bid = ?", t)
+                  ", time(MAX(stamp), 'unixepoch', 'localtime'), MAX(na), MAX(stamp) - MIN(stamp) FROM j_sample WHERE bid = ?", t)
         count, start_stamp, start, end, max_thread, duration = c.fetchone()
         # take in account the samples done in the last second
         duration += 1
-        c.execute("SELECT DISTINCT(lb) FROM sample WHERE bid = ?", t)
+        c.execute("SELECT DISTINCT(lb) FROM j_sample WHERE bid = ?", t)
         sampleNames = [row[0] for row in c]
         all_samples = self.getPeriodInfo(bid, start_stamp, duration, 'all', c)
         samples = []
