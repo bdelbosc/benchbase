@@ -19,7 +19,7 @@
 import os
 import logging
 from math import ceil
-from jmeter import JMeter
+from bencher import Bencher
 from sar import Sar
 from util import str2id, render_template, gnuplot, generate_html
 
@@ -37,16 +37,24 @@ class Report(object):
         output_dir = self.options.output
         if not os.access(output_dir, os.W_OK):
             os.mkdir(output_dir, 0775)
-        jm = JMeter(self.db, self.options)
-        info = jm.getInfo(bid)
+        bencher = Bencher.getBencherForBid(self.db, self.options, bid)
+        info = bencher.getInfo(bid)
         period = self.period
         def_period = int(ceil(info['duration'] / float(self.width))) * 30
         bars = 4
+        plot_type = 'linespoints'
+        plot_type_avg = 'lines'
         if period is None:
-            period = def_period
-        else:
-            if 2 * period < def_period:
-                bars = 2
+            if info['generator'].lower() == 'funkload':
+                cycle_duration = float(info['extra']['duration'])
+                # 5 plots by cycle:
+                period = int(ceil(cycle_duration / 4.))
+                plot_type = 'impulses'
+                plot_type_avg = 'points'
+            else:
+                period = def_period
+        if 2 * period < def_period:
+            bars = 2
         params = {'dbpath': self.options.database,
                   'output_dir': output_dir,
                   'start': info['start'][11:19],
@@ -57,11 +65,13 @@ class Report(object):
                   'height': self.height,
                   'period': period,
                   'duration': info['duration'],
-                  'bars': bars}
+                  'bars': bars,
+                  'plot_type': plot_type,
+                  'plot_type_avg': plot_type_avg}
 
         for sample in ([info['all_samples'], ] + info['samples']):
             name = sample['name']
-            data = jm.getIntervalInfo(bid, info['start_stamp'], period, name)
+            data = bencher.getIntervalInfo(bid, info['start_stamp'], period, name)
             data_path = os.path.join(output_dir, str2id(name) + ".data")
             f = open(data_path, 'w')
             for row in data:
@@ -70,12 +80,12 @@ class Report(object):
             f.close()
             params['data'] = os.path.basename(data_path)
             params['filter'] = " AND lb = '%s' " % name
-            params['title'] = "Sample: " + name
+            params['title'] = "Sample: " + sample['title']
             params['filename'] = str2id(name)
             if name.lower() == 'all':
                 params['filter'] = ''
                 params['title'] = "All"
-            script = render_template('jmeter-gplot.mako', **params)
+            script = render_template('sample-gplot.mako', **params)
             script_path = os.path.join(output_dir, str2id(name) + ".gplot")
             f = open(script_path, 'w')
             f.write(script)

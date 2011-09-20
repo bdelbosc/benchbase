@@ -20,7 +20,7 @@ import os
 from tempfile import mkdtemp
 from unittest import TestCase
 from benchbase.main import main
-import benchbase.sqliteaggregate as aggregate
+import benchbase.sqlitext as aggregate
 
 
 class FunctionalTestCase(TestCase):
@@ -46,37 +46,63 @@ class FunctionalTestCase(TestCase):
         self.assertEquals(0, ret)
 
     def test_01_import_jmeter(self):
-        ret = self.bb('import tests/bench1/jmeter.xml.gz -m bench_comment')
+        ret = self.bb('import tests/bench-jm-xml/jmeter.xml.gz -m bench_jmeter_xml')
         self.assertEquals(0, ret)
 
-    def test_02_list(self):
+    def test_02_import_jmeter_csv(self):
+        ret = self.bb('import tests/bench-jm-csv/jmeter.csv.gz -m bench_jmeter_csv')
+        self.assertEquals(0, ret)
+
+    def test_03_import_jmeter_fail(self):
+        # check that we can not import twice the same file
+        ret = self.bb('import tests/bench-jm-xml/jmeter.xml.gz -m bench_already_imported')
+        self.assertNotEquals(0, ret)
+
+    def test_05_import_funkload(self):
+        ret = self.bb('import tests/bench-fl/funkload.xml.gz -f -m fl_bench_funkload')
+        self.assertEquals(0, ret)
+
+    def test_05_list(self):
         ret = self.bb('list')
         self.assertEquals(0, ret)
 
-    def test_03_info(self):
+    def test_06_info_jmeter_xml(self):
         ret = self.bb('info 1')
         self.assertEquals(0, ret)
 
-    def test_04_import_jmeter_fail(self):
-        # check that we can not import twice the same file
-        ret = self.bb('import tests/bench1/jmeter.xml.gz -m bench_comment')
-        self.assertNotEquals(0, ret)
+    def test_06_info_jmeter_csv(self):
+        ret = self.bb('info 2')
+        self.assertEquals(0, ret)
 
-    def test_10_import_sar(self):
-        ret = self.bb('addsar 1 tests/bench1/sar.log.gz -H server_name')
+    def test_06_info_funkload(self):
+        ret = self.bb('info 3')
+        self.assertEquals(0, ret)
+
+    def test_10_import_sar_jm_xml(self):
+        ret = self.bb('addsar 1 tests/bench-jm-xml/sysstat-sar.log.gz -H server_name')
+        self.assertEquals(0, ret)
+
+    def test_10_import_sar_jm_csv(self):
+        ret = self.bb('addsar 2 tests/bench-jm-csv/sysstat-sar.log.gz -H server_name')
         self.assertEquals(0, ret)
 
     def test_11_info(self):
         ret = self.bb('info 1')
         self.assertEquals(0, ret)
 
-    def test_20_report(self):
+    def test_20_report_jmeter_xml(self):
         ret = self.bb('report -o %s 1' %
-                      os.path.join(self._test_dir, 'report1'))
+                      os.path.join(self._test_dir, 'rep-jm-xml'))
         self.assertEquals(0, ret)
 
-    def test_50_import_funkload(self):
-        ret = self.bb('import tests/bench-10-fl/funkload.xml.gz -f -m fl_bench_comment')
+    def test_20_report_jmeter_csv(self):
+        ret = self.bb('report -o %s 2' %
+                      os.path.join(self._test_dir, 'rep-jm-csv'))
+        self.assertEquals(0, ret)
+
+    def test_20_report_funkload(self):
+        ret = self.bb('report -o %s 3' %
+                      os.path.join(self._test_dir, 'rep-fl'))
         self.assertEquals(0, ret)
 
 

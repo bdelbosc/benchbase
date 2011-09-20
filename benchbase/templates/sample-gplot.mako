@@ -14,27 +14,29 @@ set style data lines
 set bars ${bars}
 set style fill solid .5
 
+set lmargin 10
+
 set yrange [0:]
 set xrange ["${start}":"${end}"]
 
 set title "Concurrent Users" offset 0, -2
 set ylabel "Threads"
-plot "${data}" u 1:14 notitle with fstep lw 2 lt 3
+plot "${data}" u 1:14 notitle with ${plot_type} lw 2 lt 3
 set format x ""
 
 set title "Samples per second"
 set ylabel "Throughput"
-plot "${data}"  u 1:15 t "avg" with line lt 9 lw 2
+plot "${data}"  u 1:15 t "avg" with ${plot_type} lt 9 lw 2
 
 set title "Average response time in second" offset 0, -2
 set ylabel "Response time"
-plot "${data}"  u 1:7:7:10:9 t "med/p90/p95" w candlesticks lt 1 lw 1 whiskerbars 0.5, "" u 1:8:5:7:7 w candlesticks lt 2 lw 1 t "min/p10/med" whiskerbars 0.5, "" u 1:3 t "avg" w lines lt 3 lw 3
+plot "${data}"  u 1:7:7:10:9 t "med/p90/p95" w candlesticks lt 1 lw 1 whiskerbars 0.5, "" u 1:8:5:7:7 w candlesticks lt 2 lw 1 t "min/p10/med" whiskerbars 0.5, "" u 1:3 t "avg" w ${plot_type_avg} lt 3 lw 3
 
 set format x "%H:%M"
 set yrange[0:100]
 set title "Errors rate"
 set ylabel "% Errors"
-plot "${data}" u 1:16 notitle with steps lw 2
+plot "${data}" u 1:16 notitle with ${plot_type} lw 2
 
 unset multiplot
 

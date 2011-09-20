@@ -47,6 +47,9 @@ setup(
         'Topic :: Software Development :: Quality Assurance',
     ],
     # setuptools specific keywords
+    install_requires=['docutils',
+                      'mako',
+                      'cElementTree'],
     zip_safe=True,
     test_suite='nose.collector',
     package_data={'benchbase': ['templates/*']},

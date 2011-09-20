@@ -19,7 +19,7 @@
 import os
 import sqlite3
 import logging
-from sqliteaggregate import add_aggregates
+from sqlitext import add_aggregates
 
 SCHEMAS = {
     # bench table
@@ -104,6 +104,7 @@ SCHEMAS = {
         'bid': 'INTEGER',
         'stamp': 'INTEGER',    # timestamp in second
         'success': 'INTEGER',  # cast on s field
+        'lb': 'TEXT',
         # fl fields
         'cycle': 'INTEGER',
         'cvus': 'INTEGER',
@@ -121,7 +122,7 @@ SCHEMAS = {
         'duration': 'REAL'
         },
 
-    'f_testResults': {
+    'f_testresult': {
         'bid': 'INTEGER',
         'cycle': 'INTEGER',
         'cvus': 'INTEGER',

@@ -18,6 +18,7 @@
 # 02111-1307, USA.
 import logging
 from model import open_db, list_benchmarks
+from bencher import Bencher
 from funkload import FunkLoad
 from jmeter import JMeter
 from sar import Sar
@@ -57,8 +58,8 @@ def cmd_info(args, options):
         logging.error('Missing bid')
         return 1
     db = open_db(options)
-    jm = JMeter(db, options)
-    print """bid: %(bid)s, from %(start)s to %(end)s, samples: %(count)d, errors: %(error)d""" % jm.getInfo(args[0])
+    bencher = Bencher.getBencherForBid(db, options, args[0])
+    print """bid: %(bid)s, from %(start)s to %(end)s, samples: %(count)d, errors: %(error)d""" % bencher.getInfo(args[0])
     db.close()
     return 0
 

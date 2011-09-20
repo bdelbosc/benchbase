@@ -47,18 +47,19 @@ COMMANDS:
   report --output REPORT_DIR BID
      Generate the report for the imported benchmark
 
-EXAMPLES:
+EXAMPLES
 
    benchbase list
       List of imported benchmarks.
 
-   benchbase import -m"Tir 42" jmeter-2010.xml
-      Import a JMeter benchmark result file.
+   benchbase import -m"Run 42" jmeter-2010.xml
+      Import a JMeter benchmark result file, this will output a BID number.
+.
+   benchbase addsar -H"localhost" -m"bencher host" 1 /tmp/sysstat-sar.log.gz
+      Attach a gzipped sysstat sar file for the bench BID 1.
 
-   benchbase add --host localhost -m"bencher host" 12 /tmp/sysstat-sar.log
-
-   benchbase report 12 -o /tmp/report-tir43
-      Build the report of benchmark bid 12 into /tmp/report-tir43 directory
+   benchbase report 1 -o /tmp/report-run42
+      Build the report of benchmark BID 1 into /tmp/report-run42 directory.
 
 """
 

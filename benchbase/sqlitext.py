@@ -96,8 +96,31 @@ class StdDev(object):
         return ret
 
 
+class First(object):
+    """Sample standard deviation"""
+    def __init__(self):
+        self.first = None
+
+    def step(self, value):
+        if self.first is None and value:
+            self.first = value
+
+    def finalize(self):
+        return self.first
+
+
 def interval(start, period, t):
     return start + (int(t - start) / int(period)) * period
+
+
+def fl_label(step, number, rtype, description):
+    """Build a funkload label."""
+    if description:
+        lb = description
+    else:
+        lb = rtype
+    ret = "%3.3d-%3.3d %s" % (step, number, lb)
+    return ret
 
 
 def add_aggregates(db):
@@ -107,4 +130,6 @@ def add_aggregates(db):
     db.create_aggregate('p95', 1, P95)
     db.create_aggregate('p98', 1, P98)
     db.create_aggregate('stddev', 1, P98)
+    db.create_aggregate('first', 1, First)
     db.create_function('interval', 3, interval)
+    db.create_function('fl_label', 4, fl_label)
