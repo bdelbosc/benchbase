@@ -7,7 +7,7 @@ NAME
 benchbase - Store and manage JMeter or FunkLoad benchmark results.
             Produces detailed reports.
 
-Visit https://github.com/bdelbosc/benchbase/wiki for more information.
+Visit https://github.com/bdelbosc/benchbase/wiki to see report examples.
 
 USAGE
 -----
