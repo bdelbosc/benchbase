@@ -39,7 +39,7 @@ EXAMPLES
 
    benchbase import -m"Run 42" jmeter-2010.xml
       Import a JMeter benchmark result file, this will output a BID number.
-.
+
    benchbase addsar -H"localhost" -m"bencher host" 1 /tmp/sysstat-sar.log.gz
       Attach a gzipped sysstat sar file for the bench BID 1.
 
@@ -102,6 +102,7 @@ Supported sysstat sar format is the text output. For instance you can
 capture stuff like this:
 
 ::
+
     sar -d -o /tmp/sar.data 1 100 > /dev/null 2>&1 &
 
 
@@ -110,5 +111,6 @@ This gets stats every second during 100s and store the result in a file.
 To get the text output you need to run this:
  
 ::
+
     LC_ALL=C sar -f /tmp/sar.data -A > /tmp/sar.log
 
