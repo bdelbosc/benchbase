@@ -1,43 +1,43 @@
 #    -*- mode: org -*-
 #+TITLE: benchbase to do list
 #+AUTHOR: Benoit Delbosc
+* Tasks
+** TODO autodetect jmeter/fl import
+   remove the -f option
+** TODO improve sar rendering
+   -> create index on stamp ?
+   -> convert sar date into  stamp as well
+** TODO sar monitoring should report memory swap usage
+** TODO gc monitorring
+   -> pb with start date?
+     benchbase import-gc -h hostname -m"comment" -d "9:10:30" BID FILE
+** TODO diff or trend reports
+** TODO plot groupthread
+   plot groupthread
+** TODO list should display start and duration date
+** TODO command: delete bid
+** TODO command: update comment
+   benchbase comment -m"bla" 1
+** TODO command add metadata
+** TODO command add misc file 
+    as blob
 
-* TODO autodetect jmeter/fl import
-  remove the -f option
-* TODO improve sar rendering
-  -> create index on stamp ?
-  -> convert sar date into  stamp as well
-* TODO sar monitoring should report memory swap usage
-* TODO gc monitorring
-  -> pb with start date?
-    benchbase import-gc -h hostname -m"comment" -d "9:10:30" BID FILE
-* TODO diff or trend reports
-* TODO plot groupthread
-  plot groupthread
-* TODO list should display start and duration date
-* TODO command: delete bid
-* TODO command: update comment
-  benchbase comment -m"bla" 1
-* TODO command add metadata
-* TODO command add misc file 
-   as blob
+    btrack add-file -m"comment" [-g GROUP] foo.bar
+    btrack list-file
+     | BID | filename | comment |
+     |-----+----------+---------|
+     |     |          |         |
+    btrack get-file BID [filename]
 
-   btrack add-file -m"comment" [-g GROUP] foo.bar
-   btrack list-file
-    | BID | filename | comment |
-    |-----+----------+---------|
-    |     |          |         |
-   btrack get-file BID [filename]
-
-   keep a blob for each imported file
-   add an export cmd to build a zip of all files + script to import
+    keep a blob for each imported file
+    add an export cmd to build a zip of all files + script to import
 * Changelog
-** 1.1.0
-* DONE support funkload import and report
-  CLOSED: [2011-09-20 mar. 11:26]
-  :LOGBOOK:
-  - State "DONE"       from "TODO"       [2011-09-20 mar. 11:26]
-  :END:
+** 1.1.0 [2011-09-20 mar.]
+*** DONE support funkload import and report
+    CLOSED: [2011-09-20 mar. 11:26]
+    :LOGBOOK:
+    - State "DONE"       from "TODO"       [2011-09-20 mar. 11:26]
+    :END:
 *** DONE split stats into period
   CLOSED: [2011-09-17 sam. 00:13]
   :LOGBOOK:
