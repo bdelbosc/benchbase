@@ -2,8 +2,17 @@
 #+TITLE: benchbase to do list
 #+AUTHOR: Benoit Delbosc
 * Tasks
-** TODO autodetect jmeter/fl import
+** TODO import & report in oneshot
+** TODO autodetect jmeter xml/jmeter csv/fl import
    remove the -f option
+** TODO csv support with header line
+** TODO add apdex
+   Satisfied
+   Tolerating
+   Frustrating
+   Apdex
+   Add 5 cols
+   ~/dev/tools/benchbase/data/test_seam_booking-20081107T160328/pages.data
 ** TODO improve sar rendering
    -> create index on stamp ?
    -> convert sar date into  stamp as well

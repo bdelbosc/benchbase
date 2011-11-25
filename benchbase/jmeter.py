@@ -27,6 +27,8 @@ CSV_COLS = {
     # 1312804821705,647,label,scenar,text,true,347447,1,2,536
     10: ['ts', 't', 'lb', 'tn', 'de', 's', 'by', 'ng', 'na', 'lt'],
     #1316515737802,1473,createDocument,1000,Test successful,Main 1-1,text,true,0,1,1,0
+    # 1312804800032,3565,lb,rc,scenar,text,true,472807,1,2,2626
+
     12: ['ts', 't', 'lb', 'rc', 'rm', 'tn', 'de', 's', 'by', 'ng', 'na', 'lt']}
 
 

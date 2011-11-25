@@ -188,7 +188,7 @@ class Bencher(object):
                'total': row[10], 'success': row[11],
                'tput': row[0] / float(period),
                'filename': str2id(sample),
-               'title': sample | truncate(20)}
+               'title': str2id(sample | truncate(20))}
         ret['error'] = int(ret['count'] - ret['success'])
         ret['success_rate'] = 100.
         if ret['count'] > 0:

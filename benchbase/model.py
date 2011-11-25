@@ -90,7 +90,8 @@ SCHEMAS = {
         't': 'INTEGER',    # Elapsed time (milliseconds)
         'tn': 'TEXT',      # Thread Name
         'ts': 'INTEGER',   # timeStamp (milliseconds since midnight Jan 1, 1970 UTC)
-        'varname': 'TEXT'  # Value of the named variable (versions of JMeter after 2.3.1)
+        'varname': 'TEXT',  # Value of the named variable (versions of JMeter after 2.3.1)
+        'gin': 'TEXT'
         },
 
     # FunkLoad tables

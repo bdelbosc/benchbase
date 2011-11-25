@@ -75,7 +75,7 @@ class Report(object):
             data_path = os.path.join(output_dir, str2id(name) + ".data")
             f = open(data_path, 'w')
             for row in data:
-                row = [str(i) for i in row]
+                row = [i and str(i) or '0' for i in row]
                 f.write(' '.join(row) + '\n')
             f.close()
             params['data'] = os.path.basename(data_path)
@@ -108,7 +108,7 @@ class Report(object):
         report = render_template('report.mako', **info)
         rst_path = os.path.join(output_dir, "index.rst")
         f = open(rst_path, 'w')
-        f.write(report)
+        f.write(report.encode('ascii', 'ignore'))
         f.close()
         html_path = os.path.join(output_dir, "index.html")
         generate_html(rst_path, html_path, output_dir)

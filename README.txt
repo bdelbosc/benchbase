@@ -52,9 +52,9 @@ EXAMPLES
 REQUIRES
 --------
 
-Benchbase requires `gnuplot <http://www.gnuplot.info/>`_ and sqlite3, on Debian/Ubuntu::
+Benchbase requires `gnuplot <http://www.gnuplot.info/>`_, on Debian/Ubuntu::
  
-  sudo aptitude install sqlite3 gnuplot
+  sudo aptitude install gnuplot
 
 
 INSTALLATION
@@ -116,3 +116,21 @@ To get the text output you need to run this:
 
     LC_ALL=C sar -f /tmp/sar.data -A > /tmp/sar.log
 
+
+Development
+---------------
+
+Source Repository
+~~~~~~~~~~~~~~~~~~~~
+
+bencbase is currently hosted at github. The github web page is
+github.com/bdelbosc/benchbase. The public git clone URL is
+
+    * git://github.com/bdelbosc/benchbase.git
+
+Issues and Bug Reports
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Feature requests and bug reports can be made here
+
+    * https://github.com/bdelbosc/benchbase/issues
